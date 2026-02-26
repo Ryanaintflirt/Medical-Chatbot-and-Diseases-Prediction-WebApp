@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find Doctors - HealthCare AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
+</head>
+<body>
+    <!-- Transparent Navigation Header -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="#home"><i class="fas fa-heartbeat"></i> HealthCare</a>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="{{ url_for('index') }}" class="nav-link">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('symptoms_check') }}" class="nav-link">
+                        <i class="fas fa-search-plus"></i> Symptom Check
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('predict_diseases') }}" class="nav-link">
+                        <i class="fas fa-stethoscope"></i> Predict Diseases
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('doctors') }}" class="nav-link active">
+                        <i class="fas fa-user-md"></i> Doctor
+                    </a>
+                </li>
+                {% if username %}
+                <li class="nav-item dropdown">
+                    <a href="#profile" class="nav-link profile-link">
+                        <i class="fas fa-user-circle"></i> {{ username }}
+                        <i class="fas fa-chevron-down dropdown-arrow"></i>
+                    </a>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('view_profile') }}">
+                            <i class="fas fa-user-edit"></i> View Profile
+                        </a>
+                        <a href="{{ url_for('appointment') }}">
+                            <i class="fas fa-calendar-check"></i> Appointments
+                        </a>
+                        <a href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a href="{{ url_for('login') }}" class="nav-link">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('register') }}" class="nav-link">
+                        <i class="fas fa-user-plus"></i> Register
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="prediction-container">
+            <!-- Header Section -->
+            <div class="prediction-header">
+                <div class="header-content">
+                    <h1><i class="fas fa-user-md"></i> Find Doctors</h1>
+                    <p>Connect with qualified healthcare professionals for personalized medical consultation</p>
+                </div>
+            </div>
+
+            <!-- Doctors Grid -->
+            <div class="prediction-form-container">
+                {% if doctors %}
+                    <div class="doctors-grid">
+                        {% for doctor in doctors %}
+                        <div class="doctor-card">
+                            <div class="doctor-photo">
+                                <img src="{{ doctor.profile_photo or '/static/image/default-doctor.jpg' }}" alt="{{ doctor.full_name }}">
+                            </div>
+                            <div class="doctor-info">
+                                <h3>{{ doctor.full_name }} | {{ doctor.qualification }}</h3>
+                                <p class="specialty">{{ doctor.specialty }}</p>
+                                <p class="experience">{{ doctor.years_experience }} years experience</p>
+                                
+                                <div class="doctor-details">
+                                    <div class="detail-item">
+                                        <i class="fas fa-calendar-alt"></i>
+                                        <span>{{ doctor.available_days }}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-clock"></i>
+                                        <span>{{ doctor.available_time }}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-phone"></i>
+                                        <span>{{ doctor.phone_number }}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-envelope"></i>
+                                        <span>{{ doctor.email }}</span>
+                                    </div>
+                                </div>
+                                <div class="doctor-bio">
+                                    <p>{{ doctor.bio }}</p>
+                                </div>
+                                
+                                <div class="doctor-actions">
+                                    <button class="btn btn-primary book-appointment-btn" data-doctor-id="{{ doctor.id }}">
+                                        <i class="fas fa-calendar-plus"></i> Book Appointment
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="coming-soon-content">
+                        <div class="coming-soon-icon">
+                            <i class="fas fa-user-md"></i>
+                        </div>
+                        <h2>No Doctors Available</h2>
+                        <p>No doctors are currently available. Please check back later or contact our support team.</p>
+                        <div class="admin-note">
+                            <p><strong>Admin Note:</strong> Visit <code>/populate-doctors</code> to add doctors to the database.</p>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>About Doctor Consultation</h3>
+                    <p>Our doctor consultation feature will provide you with access to qualified healthcare professionals for personalized medical advice and treatment recommendations.</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Disclaimer</h3>
+                    <p>Always consult with qualified healthcare professionals for medical concerns. Our prediction tools are for informational purposes only.</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 HealthCare AI. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='custom.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Profile - HealthCare Project</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation Header -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="{{ url_for('index') }}">
+                    <i class="fas fa-heartbeat"></i> HealthCare AI
+                </a>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="{{ url_for('index') }}" class="nav-link">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('symptoms_check') }}" class="nav-link">
+                        <i class="fas fa-search-plus"></i> Symptom Check
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('predict_diseases') }}" class="nav-link">
+                        <i class="fas fa-stethoscope"></i> Predict Diseases
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('doctors') }}" class="nav-link">
+                        <i class="fas fa-user-md"></i> Doctor
+                    </a>
+                </li>
+                {% if username %}
+                <li class="nav-item dropdown">
+                    <a href="#profile" class="nav-link profile-link">
+                        <i class="fas fa-user-circle"></i> {{ username }}
+                        <i class="fas fa-chevron-down dropdown-arrow"></i>
+                    </a>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('view_profile') }}">
+                            <i class="fas fa-user-edit"></i> View Profile
+                        </a>
+                        <a href="{{ url_for('appointment') }}">
+                            <i class="fas fa-calendar-check"></i> Appointments
+                        </a>
+                        <a href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a href="{{ url_for('login') }}" class="nav-link">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Profile Container -->
+    <div class="profile-container">
+        <div class="profile-header">
+            <div class="profile-header-content">
+                <div class="profile-avatar">
+                    {% if user.profile_picture %}
+                        <img src="{{ user.profile_picture }}" alt="Profile Picture" class="avatar-image">
+                    {% else %}
+                        <div class="avatar-placeholder">
+                            <i class="fas fa-user"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="profile-info">
+                    <h1 class="profile-name">{{ user.full_name or user.username }}</h1>
+                    <p class="profile-email">{{ user.email }}</p>
+                    <div class="profile-badges">
+                        <span class="auth-badge {{ user.auth_method }}">
+                            <i class="fas fa-{{ 'google' if user.auth_method == 'google' else 'user' }}"></i>
+                            {{ user.auth_method.title() }} Account
+                        </span>
+                        <span class="member-since">
+                            <i class="fas fa-calendar"></i>
+                            Member since {{ user.created_at.strftime('%B %Y') }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Content -->
+        <div class="profile-content">
+            <!-- Profile Details Section -->
+            <div class="profile-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-user"></i> Profile Information</h2>
+                    <button id="editProfileBtn" class="btn btn-primary">
+                        <i class="fas fa-edit"></i> Edit Profile
+                    </button>
+                </div>
+
+                <!-- View Mode -->
+                <div id="profileViewMode" class="profile-details">
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <label><i class="fas fa-user"></i> Username</label>
+                            <span>{{ user.username }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-envelope"></i> Email</label>
+                            <span>{{ user.email }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-id-card"></i> Full Name</label>
+                            <span>{{ user.full_name or 'Not provided' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-phone"></i> Phone Number</label>
+                            <span>{{ user.phone_number or 'Not provided' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-birthday-cake"></i> Date of Birth</label>
+                            <span>{{ user.date_of_birth.strftime('%B %d, %Y') if user.date_of_birth else 'Not provided' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-clock"></i> Last Login</label>
+                            <span>{{ user.last_login.strftime('%B %d, %Y at %I:%M %p') if user.last_login else 'Never' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edit Mode -->
+                <div id="profileEditMode" class="profile-edit-form" style="display: none;">
+                    <form id="updateProfileForm">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="editUsername"><i class="fas fa-user"></i> Username</label>
+                                <input type="text" id="editUsername" name="username" value="{{ user.username }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="editEmail"><i class="fas fa-envelope"></i> Email</label>
+                                <input type="email" id="editEmail" name="email" value="{{ user.email }}" 
+                                       {{ 'readonly' if user.auth_method == 'google' else '' }}>
+                                {% if user.auth_method == 'google' %}
+                                    <small class="form-help">Email cannot be changed for Google accounts</small>
+                                {% endif %}
+                            </div>
+                            <div class="form-group">
+                                <label for="editFullName"><i class="fas fa-id-card"></i> Full Name</label>
+                                <input type="text" id="editFullName" name="full_name" value="{{ user.full_name or '' }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="editPhone"><i class="fas fa-phone"></i> Phone Number</label>
+                                <input type="tel" id="editPhone" name="phone_number" value="{{ user.phone_number or '' }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="editDateOfBirth"><i class="fas fa-birthday-cake"></i> Date of Birth</label>
+                                <input type="date" id="editDateOfBirth" name="date_of_birth" 
+                                       value="{{ user.date_of_birth.strftime('%Y-%m-%d') if user.date_of_birth else '' }}">
+                            </div>
+                            {% if user.auth_method == 'custom' %}
+                            <div class="form-group">
+                                <label for="editPassword"><i class="fas fa-lock"></i> New Password (optional)</label>
+                                <input type="password" id="editPassword" name="password" placeholder="Leave blank to keep current password">
+                            </div>
+                            <div class="form-group">
+                                <label for="editConfirmPassword"><i class="fas fa-lock"></i> Confirm New Password</label>
+                                <input type="password" id="editConfirmPassword" name="confirm_password" placeholder="Confirm new password">
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" id="cancelEditBtn" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Medical Information Section -->
+            <div class="profile-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-user-md"></i> User Medical Information</h2>
+                    <button id="editMedicalBtn" class="btn btn-primary">
+                        <i class="fas fa-edit"></i> Edit Medical Info
+                    </button>
+                </div>
+
+                <div id="medicalViewMode" class="medical-info-grid">
+                    <!-- Personal Details Card -->
+                    <div class="medical-card">
+                        <div class="medical-card-header">
+                            <h3><i class="fas fa-user"></i> Personal Details</h3>
+                        </div>
+                        <div class="medical-card-content">
+                            <div class="medical-detail-item">
+                                <label><i class="fas fa-id-card"></i> Full Name</label>
+                                <span>{{ medical.full_name or 'Not provided' }}</span>
+                            </div>
+                            <div class="medical-detail-item">
+                                <label><i class="fas fa-birthday-cake"></i> Age</label>
+                                <span>
+                                    {{ medical.date_of_birth or 'Not provided' }}
+                                </span>
+                            </div>
+                            <div class="medical-detail-item">
+                                <label><i class="fas fa-venus-mars"></i> Gender</label>
+                                <span>{{ medical.gender or 'Not provided' }}</span>
+                            </div>
+                            <div class="medical-detail-item">
+                                <label><i class="fas fa-phone"></i> Phone Number</label>
+                                <span>{{ medical.phone_number or 'Not provided' }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Health Information Card -->
+                    <div class="medical-card">
+                        <div class="medical-card-header">
+                            <h3><i class="fas fa-heartbeat"></i> Health Information</h3>
+                        </div>
+                        <div class="medical-card-content">
+                            <div class="medical-detail-item">
+                                <label><i class="fas fa-exclamation-triangle"></i> Symptoms</label>
+                                <span>{{ medical.symptoms or 'None reported' }}</span>
+                            </div>
+                            <div class="medical-detail-item">
+                                <label><i class="fas fa-clock"></i> Started Time</label>
+                                <span>{{ medical.started_time or 'Not specified' }}</span>
+                            </div>
+                            <div class="medical-detail-item">
+                                <label><i class="fas fa-pills"></i> Current Medication</label>
+                                <span>{{ medical.current_medication or 'None' }}</span>
+                            </div>
+                            <div class="medical-detail-item">
+                                <label><i class="fas fa-allergies"></i> Allergies</label>
+                                <span>{{ medical.allergies or 'None reported' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Edit Mode -->
+                <div id="medicalEditMode" class="profile-section" style="display: none;">
+                    <form id="updateMedicalForm">
+                        <div class="form-grid">
+                            <div class="medical-form-group form-group">
+                                <label for="editFullName"><i class="fas fa-id-card"></i> Full Name</label>
+                                <input type="text" class="medical-input" id="editFullName" name="full_name" value="{{ medical.full_name or '' }}">
+                            </div>
+                            <div class="medical-form-group form-group">
+                                <label for="editDateOfBirth"><i class="fas fa-birthday-cake"></i> Date of Birth</label>
+                                <input type="date" class="medical-input" id="editDateOfBirth" name="date_of_birth" 
+                                       value="{{ medical.date_of_birth.strftime('%Y-%m-%d') if medical.date_of_birth else '' }}">
+                            </div>
+                            <div class="medical-form-group form-group">
+                                <label for="editGender"><i class="fas fa-venus-mars"></i> Gender</label>
+                                <select class="medical-input" id="editGender" name="gender" required>
+                                    <option value="">Select Gender</option>
+                                    <option value="male" {% if medical.gender == 'male' %}selected{% endif %}>Male</option>
+                                    <option value="female" {% if medical.gender == 'female' %}selected{% endif %}>Female</option>
+                                    <option value="other" {% if medical.gender == 'other' %}selected{% endif %}>Other</option>
+                                </select>
+                            </div>
+                            <div class="medical-form-group form-group">
+                                <label for="editPhone"><i class="fas fa-phone"></i> Phone Number</label>
+                                <input type="tel" class="medical-input" id="editPhone" name="phone_number" value="{{ medical.phone_number or '' }}">
+                            </div>
+                            <div class="medical-form-group form-group">
+                                <label for="editSymptoms"><i class="fas fa-exclamation-triangle"></i> Symptoms</label>
+                                <input type="text" class="medical-input" id="editSymptoms" name="symptoms" value="{{ medical.symptoms or '' }}">
+                            </div>
+                            <div class="medical-form-group form-group">
+                                <label for="editStartedTime"><i class="fas fa-clock"></i> Started Time</label>
+                                <input type="datetime-local" class="medical-input" id="editStartedTime" name="started_time" 
+                                       value="{{ medical.started_time.strftime('%Y-%m-%dT%H:%M') if medical.started_time else '' }}">
+                            </div>
+                            <div class="medical-form-group form-group">
+                                <label for="editCurrentMedication"><i class="fas fa-pills"></i> Current Medication</label>
+                                <input type="text" class="medical-input" id="editCurrentMedication" name="current_medication" value="{{ medical.current_medication or '' }}">
+                            </div>
+                            <div class="medical-form-group form-group">
+                                <label for="editAllergies"><i class="fas fa-allergies"></i> Allergies</label>
+                                <input type="text" class="medical-input" id="editAllergies" name="allergies" value="{{ medical.allergies or '' }}">
+                            </div>
+                        </div>
+                        <div class="medical-form-actions form-actions">
+                            <button type="button" id="cancelMedicalEditBtn" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                            <button type="button" id="saveMedicalBtn" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div> 
+        </div>
+
+            <!-- Account Actions Section -->
+            <div class="profile-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-cog"></i> Account Actions</h2>
+                </div>
+                <div class="action-buttons">
+                    <button id="updateProfileActionBtn" class="btn btn-primary btn-large">
+                        <i class="fas fa-edit"></i> Update Profile
+                    </button>
+                    <button id="deleteProfileBtn" class="btn btn-danger btn-large">
+                        <i class="fas fa-trash"></i> Delete Account
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-exclamation-triangle"></i> Delete Account</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete your account? This action cannot be undone.</p>
+                <p><strong>This will permanently delete:</strong></p>
+                <ul>
+                    <li>Your profile information</li>
+                    <li>All your prediction history</li>
+                    <li>Your chat conversations</li>
+                    <li>All associated data</li>
+                </ul>
+                <div class="confirmation-input">
+                    <label for="confirmDelete">Type "DELETE" to confirm:</label>
+                    <input type="text" id="confirmDelete" placeholder="Type DELETE here">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelDeleteBtn" class="btn btn-secondary">Cancel</button>
+                <button id="confirmDeleteBtn" class="btn btn-danger" disabled>Delete Account</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Processing...</p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='custom.js') }}"></script>
+</body>
+</html>

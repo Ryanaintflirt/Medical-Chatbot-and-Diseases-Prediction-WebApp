@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Login - HealthCare Project</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="login_box">
+            <div class="login_header">
+                <span>Login</span>
+            </div>
+            
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <!-- Authentication Method Toggle -->
+            <div class="auth-toggle">
+                <button type="button" id="customAuthBtn" class="auth-toggle-btn active">Email & Password</button>
+                <button type="button" id="googleAuthBtn" class="auth-toggle-btn">Google Sign-In</button>
+            </div>
+            
+            <!-- Custom Email/Password Form -->
+            <form id="customLoginForm" class="auth-form active">
+                <div class="input_box">
+                    <input type="email" id="email" class="input-field" required>
+                    <label for="email" class="label">Email</label>
+                    <i class="bx bx-envelope icon"></i>
+                </div>
+                <div class="input_box">
+                    <input type="password" id="password" class="input-field" required>
+                    <label for="password" class="label">Password</label>
+                    <i class="bx bx-lock-alt icon"></i>
+                </div>
+                <div class="remember-forgot">
+                    <div class="remember-me">
+                        <input type="checkbox" id="remember">
+                        <label for="remember">Remember me</label>
+                    </div>
+                    <div class="forgot">
+                        <a href="#" onclick="resetPassword()">Forgot password</a>
+                    </div>
+                </div>
+                <div class="input_box">
+                    <button type="submit" class="input-submit">Login</button>
+                </div>
+            </form>
+            
+            <!-- Google Sign In Form -->
+            <div id="googleLoginForm" class="auth-form">
+                <div class="google-signin">
+                    <button type="button" id="googleSignIn" class="google-btn">
+                        <i class="bx bxl-google"></i>
+                        Sign in with Google
+                    </button>
+                </div>
+            </div>
+            
+            <div class="register">
+                <span>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></span>
+            </div>
+            
+        </div>
+    </div>
+    
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {{ firebase_config | tojson }};
+        
+        console.log('Firebase Config:', firebaseConfig);
+        
+        // Declare variables in global scope
+        let auth;
+        let googleProvider;
+        
+        // Initialize Firebase
+        try {
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            console.log('Firebase initialized successfully');
+            
+            // Google Sign In
+            googleProvider = new firebase.auth.GoogleAuthProvider();
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
+            showError('Firebase initialization failed: ' + error.message);
+        }
+        
+        // Wait for DOM to be fully loaded before adding event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, adding event listeners');
+            
+            // Debug: Check if elements exist
+            const customAuthBtn = document.getElementById('customAuthBtn');
+            const googleAuthBtn = document.getElementById('googleAuthBtn');
+            const customLoginForm = document.getElementById('customLoginForm');
+            const googleSignIn = document.getElementById('googleSignIn');
+            
+            console.log('Elements found:', {
+                customAuthBtn: !!customAuthBtn,
+                googleAuthBtn: !!googleAuthBtn,
+                customLoginForm: !!customLoginForm,
+                googleSignIn: !!googleSignIn
+            });
+            
+            // Authentication method toggle
+            document.getElementById('customAuthBtn').addEventListener('click', () => {
+                document.getElementById('customLoginForm').classList.add('active');
+                document.getElementById('googleLoginForm').classList.remove('active');
+                document.getElementById('customAuthBtn').classList.add('active');
+                document.getElementById('googleAuthBtn').classList.remove('active');
+            });
+            
+            document.getElementById('googleAuthBtn').addEventListener('click', () => {
+                document.getElementById('customLoginForm').classList.remove('active');
+                document.getElementById('googleLoginForm').classList.add('active');
+                document.getElementById('customAuthBtn').classList.remove('active');
+                document.getElementById('googleAuthBtn').classList.add('active');
+            });
+        
+            // Custom login form submission
+            document.getElementById('customLoginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                console.log('Custom login form submitted');
+                
+                // Get the submit button and disable it to prevent multiple submissions
+                const submitButton = e.target.querySelector('button[type="submit"]');
+                const originalText = submitButton.textContent;
+                submitButton.disabled = true;
+                submitButton.textContent = 'Logging in...';
+                submitButton.style.opacity = '0.6';
+                submitButton.style.cursor = 'not-allowed';
+                
+                const reEnableButton = () => {
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalText;
+                    submitButton.style.opacity = '1';
+                    submitButton.style.cursor = 'pointer';
+                };
+                
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                
+                if (!email || !password) {
+                    showError('Please fill in all fields');
+                    reEnableButton();
+                    return;
+                }
+                
+                try {
+                    console.log('Attempting custom login with email:', email);
+                    
+                    // Send credentials to backend
+                    const response = await fetch('/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            authType: 'custom',
+                            email: email,
+                            password: password
+                        })
+                    });
+                    
+                    console.log('Backend response status:', response.status);
+                    const result = await response.json();
+                    console.log('Backend response:', result);
+                    
+                    if (result.success) {
+                        window.location.href = '/dashboard';
+                    } else {
+                        showError(result.error || 'Login failed');
+                        reEnableButton();
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    showError(error.message);
+                    reEnableButton();
+                }
+            });
+        
+            // Google Sign In
+            document.getElementById('googleSignIn').addEventListener('click', async () => {
+                const googleButton = document.getElementById('googleSignIn');
+                const originalText = googleButton.innerHTML;
+                
+                // Disable button during Google sign-in
+                googleButton.disabled = true;
+                googleButton.innerHTML = '<i class="bx bxl-google"></i> Signing in...';
+                googleButton.style.opacity = '0.6';
+                googleButton.style.cursor = 'not-allowed';
+                
+                const reEnableGoogleButton = () => {
+                    googleButton.disabled = false;
+                    googleButton.innerHTML = originalText;
+                    googleButton.style.opacity = '1';
+                    googleButton.style.cursor = 'pointer';
+                };
+                
+                try {
+                    console.log('Google sign-in clicked');
+                    
+                    if (!auth || !googleProvider) {
+                        showError('Firebase authentication not initialized');
+                        reEnableGoogleButton();
+                        return;
+                    }
+                    
+                    const result = await auth.signInWithPopup(googleProvider);
+                    const idToken = await result.user.getIdToken();
+                    console.log('Google sign-in successful, sending token to backend');
+                    
+                    // Send token to backend
+                    const response = await fetch('/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            authType: 'firebase',
+                            idToken: idToken
+                        })
+                    });
+                    
+                    const loginResult = await response.json();
+                    
+                    if (loginResult.success) {
+                        // Keep button disabled on success since we're redirecting
+                        window.location.href = '/home';
+                    } else {
+                        showError(loginResult.error || 'Google sign-in failed');
+                        reEnableGoogleButton();
+                    }
+                } catch (error) {
+                    console.error('Google sign-in error:', error);
+                    showError(error.message);
+                    reEnableGoogleButton();
+                }
+            });
+        });
+        
+        // Password reset
+        function resetPassword() {
+            const email = prompt('Please enter your email address:');
+            if (email) {
+                auth.sendPasswordResetEmail(email)
+                    .then(() => {
+                        alert('Password reset email sent!');
+                    })
+                    .catch((error) => {
+                        alert('Error: ' + error.message);
+                    });
+            }
+        }
+        
+        // Show error messages (moved outside try-catch)
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'flash-message error';
+            errorDiv.textContent = message;
+            
+            const form = document.getElementById('customLoginForm');
+            if (form) {
+                form.parentNode.insertBefore(errorDiv, form);
+                
+                setTimeout(() => {
+                    errorDiv.remove();
+                }, 5000);
+            }
+        }
+    </script>
+    
+    <script src="{{ url_for('static', filename='custom.js') }}"></script>
+</body>
+</html>
+

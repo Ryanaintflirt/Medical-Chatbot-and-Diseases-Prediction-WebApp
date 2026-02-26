@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parkinson's Disease Prediction - HealthCare AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
+</head>
+<body>
+    <!-- Transparent Navigation Header -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="{{ url_for('index') }}"><i class="fas fa-heartbeat"></i> HealthCare</a>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="{{ url_for('index') }}" class="nav-link">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('symptoms_check') }}" class="nav-link">
+                        <i class="fas fa-search-plus"></i> Symptom Check
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('predict_diseases') }}" class="nav-link">
+                        <i class="fas fa-stethoscope"></i> Predict Diseases
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('doctors') }}" class="nav-link">
+                        <i class="fas fa-user-md"></i> Doctor
+                    </a>
+                </li>
+                {% if username %}
+                <li class="nav-item dropdown">
+                    <a href="#profile" class="nav-link profile-link">
+                        <i class="fas fa-user-circle"></i> {{ username }}
+                        <i class="fas fa-chevron-down dropdown-arrow"></i>
+                    </a>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('view_profile') }}">
+                            <i class="fas fa-user-edit"></i> View Profile
+                        </a>
+                        <a href="{{ url_for('appointment') }}">
+                            <i class="fas fa-calendar-check"></i> Appointments
+                        </a>
+                        <a href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a href="{{ url_for('login') }}" class="nav-link">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('register') }}" class="nav-link">
+                        <i class="fas fa-user-plus"></i> Register
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="prediction-container">
+            <!-- Header Section -->
+            <div class="prediction-header">
+                <div class="header-content">
+                    <h1><i class="fas fa-brain"></i> Parkinson's Disease Prediction</h1>
+                    <p>Enter voice analysis data to get an AI-powered Parkinson's disease risk assessment</p>
+                </div>
+            </div>
+
+            <!-- Prediction Form -->
+            <div class="prediction-form-container">
+                <form id="parkinsonsPredictionForm" class="prediction-form">
+                    <div class="form-section">
+                        <h3><i class="fas fa-microphone"></i> Voice Frequency Analysis</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="fo">
+                                    <i class="fas fa-wave-square"></i>
+                                    Average Vocal Fundamental Frequency (Hz)
+                                </label>
+                                <input type="number" id="fo" name="fo" min="50" max="300" step="0.001" required 
+                                       placeholder="e.g., 120.0">
+                                <small class="form-help">Average vocal fundamental frequency</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="fhi">
+                                    <i class="fas fa-chart-line"></i>
+                                    Maximum Vocal Fundamental Frequency (Hz)
+                                </label>
+                                <input type="number" id="fhi" name="fhi" min="100" max="500" step="0.001" required 
+                                       placeholder="e.g., 157.0">
+                                <small class="form-help">Maximum vocal fundamental frequency</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="flo">
+                                    <i class="fas fa-chart-area"></i>
+                                    Minimum Vocal Fundamental Frequency (Hz)
+                                </label>
+                                <input type="number" id="flo" name="flo" min="50" max="200" step="0.001" required 
+                                       placeholder="e.g., 75.0">
+                                <small class="form-help">Minimum vocal fundamental frequency</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3><i class="fas fa-volume-up"></i> Voice Jitter Analysis</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="Jitter_percent">
+                                    <i class="fas fa-chart-bar"></i>
+                                    Jitter Percentage (%)
+                                </label>
+                                <input type="number" id="Jitter_percent" name="Jitter_percent" min="0" max="0.1" step="0.00001" required 
+                                       placeholder="e.g., 0.00784">
+                                <small class="form-help">Variation in fundamental frequency</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="Jitter_Abs">
+                                    <i class="fas fa-chart-line"></i>
+                                    Jitter Absolute (ms)
+                                </label>
+                                <input type="number" id="Jitter_Abs" name="Jitter_Abs" min="0" max="0.01" step="0.000001" required 
+                                       placeholder="e.g., 0.00007">
+                                <small class="form-help">Absolute jitter measurement</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="RAP">
+                                    <i class="fas fa-chart-pie"></i>
+                                    Relative Amplitude Perturbation
+                                </label>
+                                <input type="number" id="RAP" name="RAP" min="0" max="0.1" step="0.00001" required 
+                                       placeholder="e.g., 0.00370">
+                                <small class="form-help">Relative amplitude perturbation</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="PPQ">
+                                    <i class="fas fa-chart-bar"></i>
+                                    Five-Point Period Perturbation Quotient
+                                </label>
+                                <input type="number" id="PPQ" name="PPQ" min="0" max="0.1" step="0.00001" required 
+                                       placeholder="e.g., 0.00554">
+                                <small class="form-help">Five-point period perturbation quotient</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="DDP">
+                                    <i class="fas fa-chart-line"></i>
+                                    Jitter DDP
+                                </label>
+                                <input type="number" id="DDP" name="DDP" min="0" max="0.1" step="0.00001" required 
+                                       placeholder="e.g., 0.01109">
+                                <small class="form-help">Jitter difference of differences</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3><i class="fas fa-sound"></i> Voice Shimmer Analysis</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="Shimmer">
+                                    <i class="fas fa-wave-square"></i>
+                                    Shimmer
+                                </label>
+                                <input type="number" id="Shimmer" name="Shimmer" min="0" max="0.2" step="0.00001" required 
+                                       placeholder="e.g., 0.04374">
+                                <small class="form-help">Variation in amplitude</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="Shimmer_dB">
+                                    <i class="fas fa-volume-up"></i>
+                                    Shimmer in dB
+                                </label>
+                                <input type="number" id="Shimmer_dB" name="Shimmer_dB" min="0" max="2" step="0.0001" required 
+                                       placeholder="e.g., 0.42600">
+                                <small class="form-help">Shimmer measurement in decibels</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="APQ3">
+                                    <i class="fas fa-chart-line"></i>
+                                    Three-Point Amplitude Perturbation Quotient
+                                </label>
+                                <input type="number" id="APQ3" name="APQ3" min="0" max="0.1" step="0.00001" required 
+                                       placeholder="e.g., 0.02182">
+                                <small class="form-help">Three-point amplitude perturbation quotient</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="APQ5">
+                                    <i class="fas fa-chart-bar"></i>
+                                    Five-Point Amplitude Perturbation Quotient
+                                </label>
+                                <input type="number" id="APQ5" name="APQ5" min="0" max="0.1" step="0.00001" required 
+                                       placeholder="e.g., 0.03130">
+                                <small class="form-help">Five-point amplitude perturbation quotient</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3><i class="fas fa-chart-area"></i> Advanced Voice Parameters</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="APQ">
+                                    <i class="fas fa-chart-pie"></i>
+                                    Amplitude Perturbation Quotient
+                                </label>
+                                <input type="number" id="APQ" name="APQ" min="0" max="0.1" step="0.00001" required 
+                                       placeholder="e.g., 0.02971">
+                                <small class="form-help">Amplitude perturbation quotient</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="DDA">
+                                    <i class="fas fa-chart-line"></i>
+                                    Shimmer DDA
+                                </label>
+                                <input type="number" id="DDA" name="DDA" min="0" max="0.2" step="0.00001" required 
+                                       placeholder="e.g., 0.06545">
+                                <small class="form-help">Shimmer difference of differences</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="NHR">
+                                    <i class="fas fa-volume-down"></i>
+                                    Noise-to-Harmonics Ratio
+                                </label>
+                                <input type="number" id="NHR" name="NHR" min="0" max="0.1" step="0.00001" required 
+                                       placeholder="e.g., 0.02211">
+                                <small class="form-help">Ratio of noise to harmonics</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="HNR">
+                                    <i class="fas fa-volume-up"></i>
+                                    Harmonics-to-Noise Ratio
+                                </label>
+                                <input type="number" id="HNR" name="HNR" min="0" max="50" step="0.001" required 
+                                       placeholder="e.g., 21.033">
+                                <small class="form-help">Ratio of harmonics to noise</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3><i class="fas fa-cogs"></i> Nonlinear Dynamic Complexity</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="RPDE">
+                                    <i class="fas fa-chart-line"></i>
+                                    Recurrence Period Density Entropy
+                                </label>
+                                <input type="number" id="RPDE" name="RPDE" min="0" max="1" step="0.000001" required 
+                                       placeholder="e.g., 0.414783">
+                                <small class="form-help">Recurrence period density entropy</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="DFA">
+                                    <i class="fas fa-chart-area"></i>
+                                    Detrended Fluctuation Analysis
+                                </label>
+                                <input type="number" id="DFA" name="DFA" min="0" max="1" step="0.000001" required 
+                                       placeholder="e.g., 0.815285">
+                                <small class="form-help">Detrended fluctuation analysis</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="spread1">
+                                    <i class="fas fa-chart-bar"></i>
+                                    Nonlinear Dynamic Complexity Measure 1
+                                </label>
+                                <input type="number" id="spread1" name="spread1" min="-10" max="0" step="0.000001" required 
+                                       placeholder="e.g., -4.813031">
+                                <small class="form-help">Nonlinear dynamic complexity measure 1</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="spread2">
+                                    <i class="fas fa-chart-pie"></i>
+                                    Nonlinear Dynamic Complexity Measure 2
+                                </label>
+                                <input type="number" id="spread2" name="spread2" min="0" max="1" step="0.000001" required 
+                                       placeholder="e.g., 0.266482">
+                                <small class="form-help">Nonlinear dynamic complexity measure 2</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3><i class="fas fa-chart-line"></i> Additional Complexity Measures</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="D2">
+                                    <i class="fas fa-chart-area"></i>
+                                    Correlation Dimension
+                                </label>
+                                <input type="number" id="D2" name="D2" min="0" max="10" step="0.000001" required 
+                                       placeholder="e.g., 2.301442">
+                                <small class="form-help">Correlation dimension</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="PPE">
+                                    <i class="fas fa-chart-bar"></i>
+                                    Pitch Period Entropy
+                                </label>
+                                <input type="number" id="PPE" name="PPE" min="0" max="1" step="0.000001" required 
+                                       placeholder="e.g., 0.284654">
+                                <small class="form-help">Pitch period entropy</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <a href="{{ url_for('predict_diseases') }}" class="btn btn-outline btn-large">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-large">
+                            <i class="fas fa-play"></i> Get Parkinson's Prediction
+                        </button>
+                        <button type="reset" class="btn btn-secondary">
+                            <i class="fas fa-undo"></i> Reset Form
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Results Section -->
+            <div id="predictionResults" class="results-container" style="display: none;">
+                <div class="results-header">
+                    <h3><i class="fas fa-chart-pie"></i> Prediction Results</h3>
+                </div>
+                <div class="results-content">
+                    <div id="predictionResult" class="result-card">
+                        <!-- Results will be displayed here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="loadingSpinner" class="loading-container" style="display: none;">
+                <div class="spinner"></div>
+                <p>Analyzing voice data for Parkinson's indicators...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>About Parkinson's Disease Prediction</h3>
+                    <p>Our AI-powered Parkinson's disease prediction system uses advanced voice analysis and machine learning algorithms to detect early signs of Parkinson's disease through voice pattern analysis.</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Disclaimer</h3>
+                    <p>These predictions are for informational purposes only and should not replace professional medical advice. Always consult with healthcare professionals for medical concerns.</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 HealthCare AI. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='custom.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('parkinsonsPredictionForm');
+            const resultsContainer = document.getElementById('predictionResults');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const resultCard = document.getElementById('predictionResult');
+
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                // Show loading spinner
+                loadingSpinner.style.display = 'block';
+                resultsContainer.style.display = 'none';
+                
+                // Get form data
+                const formData = new FormData(form);
+                const data = {};
+                for (let [key, value] of formData.entries()) {
+                    data[key] = parseFloat(value);
+                }
+                
+                try {
+                    const response = await fetch('/predict-parkinsons-disease', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    // Hide loading spinner
+                    loadingSpinner.style.display = 'none';
+                    
+                    if (response.ok) {
+                        // Display results
+                        displayResults(result);
+                    } else {
+                        // Display error
+                        displayError(result.error || 'An error occurred during prediction');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    loadingSpinner.style.display = 'none';
+                    displayError('Network error. Please try again.');
+                }
+            });
+
+            function displayResults(result) {
+                const prediction = result.prediction;
+                const confidence = result.confidence || 'N/A';
+                const isPositive = prediction === 1;
+                
+                resultCard.innerHTML = `
+                    <div class="result-header ${isPositive ? 'risk-positive' : 'risk-negative'}">
+                        <div class="result-icon">
+                            <i class="fas fa-${isPositive ? 'exclamation-triangle' : 'check-circle'}"></i>
+                        </div>
+                        <div class="result-title">
+                            <h4>${isPositive ? 'Parkinson\'s Disease Risk Detected' : 'Low Parkinson\'s Disease Risk'}</h4>
+                            <p class="confidence">Confidence: ${confidence}%</p>
+                        </div>
+                    </div>
+                    <div class="result-body">
+                        <p class="result-message">
+                            ${isPositive 
+                                ? 'Based on the voice analysis data, our AI model indicates potential signs of Parkinson\'s disease. We strongly recommend consulting with a neurologist or movement disorder specialist for comprehensive evaluation, including neurological examination and additional diagnostic tests.'
+                                : 'Great news! Based on the voice analysis data, our AI model indicates a low risk of Parkinson\'s disease. Continue maintaining a healthy lifestyle with regular exercise, balanced nutrition, and regular health check-ups.'
+                            }
+                        </p>
+                        <div class="result-recommendations">
+                            <h5><i class="fas fa-lightbulb"></i> Recommendations:</h5>
+                            <ul>
+                                <li><i class="fas fa-running"></i> Regular physical exercise and movement</li>
+                                <li><i class="fas fa-utensils"></i> Maintain a balanced diet rich in antioxidants</li>
+                                <li><i class="fas fa-brain"></i> Engage in cognitive activities and mental exercises</li>
+                                <li><i class="fas fa-microphone"></i> Monitor voice changes and speech patterns</li>
+                                <li><i class="fas fa-stethoscope"></i> Regular neurological check-ups</li>
+                                <li><i class="fas fa-heart"></i> Manage stress and maintain good sleep habits</li>
+                            </ul>
+                        </div>
+                        <div class="result-disclaimer">
+                            <p><i class="fas fa-info-circle"></i> <strong>Medical Disclaimer:</strong> This prediction is for informational purposes only and should not replace professional medical advice, diagnosis, or treatment. Voice analysis alone cannot definitively diagnose Parkinson's disease.</p>
+                        </div>
+                        ${isPositive ? `
+                        <div class="result-actions">
+                            <a href="{{ url_for('doctors') }}" class="btn btn-primary doctor-consultation-btn">
+                                <i class="fas fa-user-md"></i> Consult Neurologist Now
+                            </a>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                resultsContainer.style.display = 'block';
+                resultsContainer.scrollIntoView({ behavior: 'smooth' });
+            }
+
+            function displayError(errorMessage) {
+                resultCard.innerHTML = `
+                    <div class="result-header error">
+                        <div class="result-icon">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </div>
+                        <div class="result-title">
+                            <h4>Prediction Error</h4>
+                        </div>
+                    </div>
+                    <div class="result-body">
+                        <p class="result-message">${errorMessage}</p>
+                        <div class="result-actions">
+                            <button class="btn btn-primary" onclick="location.reload()">
+                                <i class="fas fa-refresh"></i> Try Again
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                resultsContainer.style.display = 'block';
+                resultsContainer.scrollIntoView({ behavior: 'smooth' });
+            }
+
+            // Form validation
+            const inputs = form.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                input.addEventListener('blur', function() {
+                    validateField(this);
+                });
+            });
+
+            function validateField(field) {
+                const value = field.value.trim();
+                const isValid = field.checkValidity();
+                
+                if (!isValid || !value) {
+                    field.classList.add('error');
+                    field.classList.remove('success');
+                } else {
+                    field.classList.remove('error');
+                    field.classList.add('success');
+                }
+            }
+
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <title>Register - HealthCare Project</title>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="login_box">
+      <div class="login_header">
+        <span>Register</span>
+      </div>
+      
+      <!-- Flash Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+              {% for category, message in messages %}
+                  <div class="flash-message {{ category }}">
+                      {{ message }}
+                  </div>
+              {% endfor %}
+          {% endif %}
+      {% endwith %}
+
+      <!-- Authentication Method Toggle -->
+      <div class="auth-toggle">
+        <button type="button" id="customRegBtn" class="auth-toggle-btn active">Email & Password</button>
+        <button type="button" id="googleRegBtn" class="auth-toggle-btn">Google Sign-Up</button>
+      </div>
+      
+      <!-- Custom Registration Form -->
+      <form id="customRegisterForm" class="auth-form active">
+        <!-- Username -->
+        <div class="input_box">
+          <input type="text" id="username" class="input-field" required>
+          <label for="username" class="label">Username</label>
+          <i class="bx bx-user icon"></i>
+        </div>
+
+        <!-- Full Name -->
+        <div class="input_box">
+          <input type="text" id="fullname" class="input-field" required>
+          <label for="fullname" class="label">Full Name</label>
+          <i class="bx bx-user-circle icon"></i>
+        </div>
+
+        <!-- Email -->
+        <div class="input_box">
+          <input type="email" id="email" class="input-field" required>
+          <label for="email" class="label">Email</label>
+          <i class="bx bx-envelope icon"></i>
+        </div>
+
+        <!-- Password -->
+        <div class="input_box">
+          <input type="password" id="password" class="input-field" required>
+          <label for="password" class="label">Password</label>
+          <i class="bx bx-lock-alt icon"></i>
+        </div>
+
+        <!-- Confirm Password -->
+        <div class="input_box">
+          <input type="password" id="confirm_password" class="input-field" required>
+          <label for="confirm_password" class="label">Confirm Password</label>
+          <i class="bx bx-lock icon"></i>
+        </div>
+
+        <!-- Terms and Conditions -->
+        <div class="remember-forgot">
+          <div class="remember-me">
+            <input type="checkbox" id="terms" required>
+            <label for="terms">I agree to the <a href="#">Terms & Conditions</a></label>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="input_box">
+          <button type="submit" class="input-submit">Register</button>
+        </div>
+      </form>
+      
+      <!-- Google Sign Up Form -->
+      <div id="googleRegisterForm" class="auth-form">
+        <div class="google-signin">
+          <button type="button" id="googleSignUp" class="google-btn">
+            <i class="bx bxl-google"></i>
+            Sign up with Google
+          </button>
+        </div>
+      </div>
+
+      <!-- Redirect to Login -->
+      <div class="register">
+        <span>Already have an account? <a href="{{ url_for('login') }}">Login here</a></span>
+      </div>
+      
+    </div>
+  </div>
+  
+  <script>
+    // Firebase configuration
+    const firebaseConfig = {{ firebase_config | tojson }};
+    
+    console.log('Firebase Config:', firebaseConfig);
+    
+    // Declare variables in global scope
+    let auth;
+    let googleProvider;
+    
+    // Initialize Firebase
+    try {
+      firebase.initializeApp(firebaseConfig);
+      auth = firebase.auth();
+      console.log('Firebase initialized successfully');
+      
+      // Google Sign In
+      googleProvider = new firebase.auth.GoogleAuthProvider();
+    } catch (error) {
+      console.error('Firebase initialization error:', error);
+      showError('Firebase initialization failed: ' + error.message);
+    }
+    
+    // Wait for DOM to be fully loaded before adding event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOM loaded, adding event listeners');
+      
+      // Debug: Check if elements exist
+      const customRegBtn = document.getElementById('customRegBtn');
+      const googleRegBtn = document.getElementById('googleRegBtn');
+      const customRegisterForm = document.getElementById('customRegisterForm');
+      const googleSignUp = document.getElementById('googleSignUp');
+      
+      console.log('Elements found:', {
+        customRegBtn: !!customRegBtn,
+        googleRegBtn: !!googleRegBtn,
+        customRegisterForm: !!customRegisterForm,
+        googleSignUp: !!googleSignUp
+      });
+      
+      // Authentication method toggle
+      document.getElementById('customRegBtn').addEventListener('click', () => {
+        document.getElementById('customRegisterForm').classList.add('active');
+        document.getElementById('googleRegisterForm').classList.remove('active');
+        document.getElementById('customRegBtn').classList.add('active');
+        document.getElementById('googleRegBtn').classList.remove('active');
+      });
+      
+      document.getElementById('googleRegBtn').addEventListener('click', () => {
+        document.getElementById('customRegisterForm').classList.remove('active');
+        document.getElementById('googleRegisterForm').classList.add('active');
+        document.getElementById('customRegBtn').classList.remove('active');
+        document.getElementById('googleRegBtn').classList.add('active');
+      });
+    
+      // Custom registration form submission
+      document.getElementById('customRegisterForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        console.log('Custom registration form submitted');
+        
+        // Get the submit button and disable it to prevent multiple submissions
+        const submitButton = e.target.querySelector('button[type="submit"]');
+        const originalText = submitButton.textContent;
+        submitButton.disabled = true;
+        submitButton.textContent = 'Registering...';
+        submitButton.style.opacity = '0.6';
+        submitButton.style.cursor = 'not-allowed';
+        
+        const username = document.getElementById('username').value;
+        const fullname = document.getElementById('fullname').value;
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirm_password').value;
+        const terms = document.getElementById('terms').checked;
+      
+        // Function to re-enable the button
+        const reEnableButton = () => {
+          submitButton.disabled = false;
+          submitButton.textContent = originalText;
+          submitButton.style.opacity = '1';
+          submitButton.style.cursor = 'pointer';
+        };
+        
+        // Validation
+        if (password !== confirmPassword) {
+          showError('Passwords do not match!');
+          reEnableButton();
+          return;
+        }
+        
+        if (password.length < 6) {
+          showError('Password must be at least 6 characters long!');
+          reEnableButton();
+          return;
+        }
+        
+        if (!terms) {
+          showError('You must accept the Terms & Conditions!');
+          reEnableButton();
+          return;
+        }
+        
+        try {
+          console.log('Attempting custom registration');
+          console.log('Form data:', { username, email, fullname, password: '***' });
+          
+          const registrationData = { 
+            authType: 'custom',
+            username: username,
+            email: email,
+            password: password,
+            fullname: fullname
+          };
+          
+          console.log('Sending registration data:', registrationData);
+          
+          // Send registration data to backend
+          const response = await fetch('/register', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(registrationData)
+          });
+          
+          console.log('Response status:', response.status);
+          console.log('Response headers:', response.headers);
+          
+          const result = await response.json();
+          console.log('Response data:', result);
+          
+          if (result.success) {
+            console.log('Registration successful, redirecting to home...');
+            // Keep button disabled on success since we're redirecting
+            window.location.href = '/dashboard';
+          } else {
+            console.error('Registration failed:', result.error);
+            showError(result.error || 'Registration failed');
+            reEnableButton();
+          }
+        } catch (error) {
+          console.error('Registration error:', error);
+          showError('Registration failed: ' + error.message);
+          reEnableButton();
+        }
+      });
+    
+      // Google Sign Up
+      document.getElementById('googleSignUp').addEventListener('click', async () => {
+        const googleButton = document.getElementById('googleSignUp');
+        const originalText = googleButton.innerHTML;
+        
+        // Disable button during Google sign-up
+        googleButton.disabled = true;
+        googleButton.innerHTML = '<i class="bx bxl-google"></i> Signing up...';
+        googleButton.style.opacity = '0.6';
+        googleButton.style.cursor = 'not-allowed';
+        
+        const reEnableGoogleButton = () => {
+          googleButton.disabled = false;
+          googleButton.innerHTML = originalText;
+          googleButton.style.opacity = '1';
+          googleButton.style.cursor = 'pointer';
+        };
+        
+        try {
+          if (!auth || !googleProvider) {
+            showError('Firebase authentication not initialized');
+            reEnableGoogleButton();
+            return;
+          }
+          
+          const result = await auth.signInWithPopup(googleProvider);
+          const idToken = await result.user.getIdToken();
+          
+          // Send token to backend
+          const response = await fetch('/register', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              authType: 'firebase',
+              idToken: idToken,
+              fullname: result.user.displayName || ''
+            })
+          });
+          
+          const registerResult = await response.json();
+          
+          if (registerResult.success) {
+            // Keep button disabled on success since we're redirecting
+            window.location.href = '/home';
+          } else {
+            showError(registerResult.error || 'Google sign-up failed');
+            reEnableGoogleButton();
+          }
+        } catch (error) {
+          console.error('Google sign-up error:', error);
+          showError(error.message);
+          reEnableGoogleButton();
+        }
+      });
+    });
+    
+    // Show error messages (moved outside try-catch)
+    function showError(message) {
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'flash-message error';
+      errorDiv.textContent = message;
+      
+      const form = document.getElementById('customRegisterForm');
+      if (form) {
+        form.parentNode.insertBefore(errorDiv, form);
+        
+        setTimeout(() => {
+          errorDiv.remove();
+        }, 5000);
+      }
+    }
+  </script>
+  
+  <script src="{{ url_for('static', filename='custom.js') }}"></script>
+</body>
+</html>

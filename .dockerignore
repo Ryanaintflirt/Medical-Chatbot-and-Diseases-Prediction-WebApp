@@ -1,0 +1,52 @@
+# Python cache
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git
+.gitignore
+
+# Environment files (will be provided at runtime)
+SECRET.env
+.env
+.env.*
+
+# Database (will be created in volume)
+instance/*.db
+
+# Jupyter notebooks
+research/
+*.ipynb
+.ipynb_checkpoints
+
+# Documentation
+README.md
+*.md
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+tests/
+test_*.py
+*_test.py

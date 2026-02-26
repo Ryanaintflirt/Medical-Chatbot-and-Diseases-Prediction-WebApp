@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disease Prediction - HealthCare AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
+</head>
+<body>
+    <!-- Transparent Navigation Header -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="#home"><i class="fas fa-heartbeat"></i> HealthCare</a>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="{{ url_for('index') }}" class="nav-link">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('symptoms_check') }}" class="nav-link">
+                        <i class="fas fa-search-plus"></i> Symptom Check
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('predict_diseases') }}" class="nav-link">
+                        <i class="fas fa-stethoscope"></i> Predict Diseases
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('doctors') }}" class="nav-link">
+                        <i class="fas fa-user-md"></i> Doctor
+                    </a>
+                </li>
+                {% if username %}
+                <li class="nav-item dropdown">
+                    <a href="#profile" class="nav-link profile-link">
+                        <i class="fas fa-user-circle"></i> {{ username }}
+                        <i class="fas fa-chevron-down dropdown-arrow"></i>
+                    </a>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('view_profile') }}">
+                            <i class="fas fa-user-edit"></i> View Profile
+                        </a>
+                        <a href="{{ url_for('appointment') }}">
+                            <i class="fas fa-calendar-check"></i> Appointments
+                        </a>
+                        <a href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a href="{{ url_for('login') }}" class="nav-link">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('register') }}" class="nav-link">
+                        <i class="fas fa-user-plus"></i> Register
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="prediction-container">
+            <!-- Header Section -->
+            <div class="prediction-header">
+                <div class="header-content">
+                    <h1><i class="fas fa-stethoscope"></i> Disease Prediction</h1>
+                    <p>Select a disease to get AI-powered predictions based on your symptoms</p>
+                </div>
+            </div>
+
+            <!-- Search Section -->
+            <div class="search-section">
+                <div class="search-container">
+                    <div class="search-box">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="diseaseSearch" placeholder="Search for diseases..." class="search-input">
+                        <button class="search-clear" id="clearSearch" style="display: none;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="search-stats">
+                        <span id="searchResults">3 diseases available</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Disease Cards Grid -->
+            <div class="diseases-grid" id="diseasesGrid">
+                <!-- Heart Disease Card -->
+                <div class="disease-card" data-disease="heart" data-keywords="heart cardiovascular cardiac chest pain">
+                    <div class="card-header">
+                        <div class="disease-icon heart-icon">
+                            <i class="fas fa-heart"></i>
+                        </div>
+                        <div class="disease-info">
+                            <h3>Heart Disease</h3>
+                            <p class="disease-category">Cardiovascular</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="disease-description">
+                            Predict heart disease risk based on cardiovascular health indicators including blood pressure, cholesterol levels, and lifestyle factors.
+                        </p>
+                        <div class="disease-features">
+                            <span class="feature-tag">Blood Pressure</span>
+                            <span class="feature-tag">Cholesterol</span>
+                            <span class="feature-tag">Age</span>
+                            <span class="feature-tag">Exercise</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <a href="{{ url_for('predict_heart') }}" class="predict-btn">
+                            <i class="fas fa-play"></i> Start Prediction
+                        </a>
+                        <div class="accuracy-badge">
+                            <i class="fas fa-chart-line"></i> 95% Accuracy
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Diabetes Card -->
+                <div class="disease-card" data-disease="diabetes" data-keywords="diabetes blood sugar glucose insulin">
+                    <div class="card-header">
+                        <div class="disease-icon diabetes-icon">
+                            <i class="fas fa-tint"></i>
+                        </div>
+                        <div class="disease-info">
+                            <h3>Diabetes</h3>
+                            <p class="disease-category">Metabolic</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="disease-description">
+                            Analyze diabetes risk using blood glucose levels, BMI, age, and other metabolic indicators to predict Type 1 or Type 2 diabetes.
+                        </p>
+                        <div class="disease-features">
+                            <span class="feature-tag">Glucose</span>
+                            <span class="feature-tag">BMI</span>
+                            <span class="feature-tag">Age</span>
+                            <span class="feature-tag">Family History</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <a href="{{ url_for('predict_diabetes') }}" class="predict-btn">
+                            <i class="fas fa-play"></i> Start Prediction
+                        </a>
+                        <div class="accuracy-badge">
+                            <i class="fas fa-chart-line"></i> 92% Accuracy
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Parkinson's Disease Card -->
+                <div class="disease-card" data-disease="parkinsons" data-keywords="parkinsons neurological tremor movement">
+                    <div class="card-header">
+                        <div class="disease-icon parkinsons-icon">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <div class="disease-info">
+                            <h3>Parkinson's Disease</h3>
+                            <p class="disease-category">Neurological</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="disease-description">
+                            Early detection of Parkinson's disease using voice analysis, motor function tests, and neurological assessment parameters.
+                        </p>
+                        <div class="disease-features">
+                            <span class="feature-tag">Voice Analysis</span>
+                            <span class="feature-tag">Motor Function</span>
+                            <span class="feature-tag">Tremor</span>
+                            <span class="feature-tag">Balance</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <a href="{{ url_for('predict_parkinsons') }}" class="predict-btn">
+                            <i class="fas fa-play"></i> Start Prediction
+                        </a>
+                        <div class="accuracy-badge">
+                            <i class="fas fa-chart-line"></i> 88% Accuracy
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coming Soon Cards -->
+                <div class="disease-card coming-soon" data-disease="cancer" data-keywords="cancer tumor malignant">
+                    <div class="card-header">
+                        <div class="disease-icon cancer-icon">
+                            <i class="fas fa-microscope"></i>
+                        </div>
+                        <div class="disease-info">
+                            <h3>Cancer Detection</h3>
+                            <p class="disease-category">Oncology</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="disease-description">
+                            Advanced cancer detection using medical imaging, biomarker analysis, and genetic testing for early diagnosis.
+                        </p>
+                        <div class="disease-features">
+                            <span class="feature-tag">Imaging</span>
+                            <span class="feature-tag">Biomarkers</span>
+                            <span class="feature-tag">Genetics</span>
+                            <span class="feature-tag">Family History</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="predict-btn disabled" disabled>
+                            <i class="fas fa-clock"></i> Coming Soon
+                        </button>
+                        <div class="accuracy-badge">
+                            <i class="fas fa-tools"></i> In Development
+                        </div>
+                    </div>
+                </div>
+
+                <div class="disease-card coming-soon" data-disease="alzheimer" data-keywords="alzheimer dementia memory cognitive">
+                    <div class="card-header">
+                        <div class="disease-icon alzheimer-icon">
+                            <i class="fas fa-memory"></i>
+                        </div>
+                        <div class="disease-info">
+                            <h3>Alzheimer's Disease</h3>
+                            <p class="disease-category">Neurological</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="disease-description">
+                            Early detection of Alzheimer's disease through cognitive assessments, brain imaging, and biomarker analysis.
+                        </p>
+                        <div class="disease-features">
+                            <span class="feature-tag">Cognitive Tests</span>
+                            <span class="feature-tag">Brain Imaging</span>
+                            <span class="feature-tag">Biomarkers</span>
+                            <span class="feature-tag">Memory</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="predict-btn disabled" disabled>
+                            <i class="fas fa-clock"></i> Coming Soon
+                        </button>
+                        <div class="accuracy-badge">
+                            <i class="fas fa-tools"></i> In Development
+                        </div>
+                    </div>
+                </div>
+
+                <div class="disease-card coming-soon" data-disease="stroke" data-keywords="stroke cerebrovascular brain attack">
+                    <div class="card-header">
+                        <div class="disease-icon stroke-icon">
+                            <i class="fas fa-head-side-brain"></i>
+                        </div>
+                        <div class="disease-info">
+                            <h3>Stroke Risk</h3>
+                            <p class="disease-category">Cerebrovascular</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="disease-description">
+                            Assess stroke risk factors including blood pressure, cholesterol, diabetes, and lifestyle factors for prevention.
+                        </p>
+                        <div class="disease-features">
+                            <span class="feature-tag">Blood Pressure</span>
+                            <span class="feature-tag">Cholesterol</span>
+                            <span class="feature-tag">Diabetes</span>
+                            <span class="feature-tag">Smoking</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="predict-btn disabled" disabled>
+                            <i class="fas fa-clock"></i> Coming Soon
+                        </button>
+                        <div class="accuracy-badge">
+                            <i class="fas fa-tools"></i> In Development
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- No Results Message -->
+            <div class="no-results" id="noResults" style="display: none;">
+                <div class="no-results-content">
+                    <i class="fas fa-search"></i>
+                    <h3>No diseases found</h3>
+                    <p>Try searching with different keywords or browse all available diseases.</p>
+                    <button class="btn btn-primary" onclick="clearSearch()">
+                        <i class="fas fa-refresh"></i> Show All Diseases
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>About Disease Prediction</h3>
+                    <p>Our AI-powered disease prediction system uses advanced machine learning algorithms to analyze your health data and provide accurate risk assessments.</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Available Predictions</h3>
+                    <ul class="footer-links">
+                        <li><a href="#heart"><i class="fas fa-heart"></i> Heart Disease</a></li>
+                        <li><a href="#diabetes"><i class="fas fa-tint"></i> Diabetes</a></li>
+                        <li><a href="#parkinsons"><i class="fas fa-brain"></i> Parkinson's</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Disclaimer</h3>
+                    <p>These predictions are for informational purposes only and should not replace professional medical advice. Always consult with healthcare professionals.</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 HealthCare AI. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='custom.js') }}"></script>
+    <script>
+        // Disease Search Functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('diseaseSearch');
+            const clearButton = document.getElementById('clearSearch');
+            const diseaseCards = document.querySelectorAll('.disease-card');
+            const noResults = document.getElementById('noResults');
+            const searchResults = document.getElementById('searchResults');
+            const diseasesGrid = document.getElementById('diseasesGrid');
+
+            // Search functionality
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase().trim();
+                let visibleCount = 0;
+
+                diseaseCards.forEach(card => {
+                    const diseaseName = card.querySelector('h3').textContent.toLowerCase();
+                    const keywords = card.getAttribute('data-keywords').toLowerCase();
+                    const category = card.querySelector('.disease-category').textContent.toLowerCase();
+                    
+                    if (diseaseName.includes(searchTerm) || 
+                        keywords.includes(searchTerm) || 
+                        category.includes(searchTerm)) {
+                        card.style.display = 'block';
+                        visibleCount++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                // Update search results count
+                searchResults.textContent = `${visibleCount} disease${visibleCount !== 1 ? 's' : ''} found`;
+
+                // Show/hide no results message
+                if (visibleCount === 0 && searchTerm !== '') {
+                    noResults.style.display = 'block';
+                    diseasesGrid.style.display = 'none';
+                } else {
+                    noResults.style.display = 'none';
+                    diseasesGrid.style.display = 'grid';
+                }
+
+                // Show/hide clear button
+                clearButton.style.display = searchTerm !== '' ? 'block' : 'none';
+            });
+
+            // Clear search
+            clearButton.addEventListener('click', function() {
+                searchInput.value = '';
+                searchInput.dispatchEvent(new Event('input'));
+                searchInput.focus();
+            });
+
+            // Clear search function for no results button
+            window.clearSearch = function() {
+                searchInput.value = '';
+                searchInput.dispatchEvent(new Event('input'));
+            };
+
+            // Add animation to disease cards on load
+            diseaseCards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                
+                setTimeout(() => {
+                    card.style.transition = 'all 0.5s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        });
+    </script>
+</body>
+</html>

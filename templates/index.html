@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HealthCare Project</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Transparent Navigation Header -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="#home"><i class="fas fa-heartbeat"></i> HealthCare</a>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="#home" class="nav-link">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('symptoms_check') }}" class="nav-link">
+                        <i class="fas fa-search-plus"></i> Symptom Check
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('predict_diseases') }}" class="nav-link">
+                        <i class="fas fa-stethoscope"></i> Predict Diseases
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('doctors') }}" class="nav-link">
+                        <i class="fas fa-user-md"></i> Doctor
+                    </a>
+                </li>
+                {% if username %}
+                <li class="nav-item dropdown">
+                    <a href="#profile" class="nav-link profile-link">
+                        <i class="fas fa-user-circle"></i> {{ username }}
+                        <i class="fas fa-chevron-down dropdown-arrow"></i>
+                    </a>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('view_profile') }}">
+                            <i class="fas fa-user-edit"></i> View Profile
+                        </a>
+                        <a href="{{ url_for('appointment') }}">
+                            <i class="fas fa-calendar-check"></i> Appointments
+                        </a>
+                        <a href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </li>
+                {% else %}
+                <li class="nav-item nav-auth-group">
+                    <a href="{{ url_for('login') }}" class="nav-link nav-login">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                    <span class="nav-separator">|</span>
+                    <a href="{{ url_for('register') }}" class="nav-link nav-register">
+                        <i class="fas fa-user-plus"></i> Register
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="hero-section">
+            <div class="hero-content">
+                {% if username %}
+                    <h1>Welcome back, {{ username }}!</h1>
+                    <p>Advanced AI-powered disease prediction and healthcare solutions</p>
+                {% else %}
+                    <h1>Welcome to HealthCare Project</h1>
+                    <p>Advanced AI-powered disease prediction and healthcare solutions</p>
+                {% endif %}
+                <div class="hero-buttons">
+                    <a href="{{ url_for('home') }}" class="btn btn-primary">
+                        <i class="fas fa-robot"></i> AI Health Assistant
+                    </a>
+                    <a href="{{ url_for('symptoms_check') }}" class="btn btn-secondary">Symptom Check</a>
+                    <a href="{{ url_for('predict_diseases') }}" class="btn btn-secondary">Start Prediction</a>
+                    <a href="{{ url_for('doctors') }}" class="btn btn-secondary">Find Doctor</a>
+                    
+                    {% if not username %}
+                        <a href="{{ url_for('login') }}" class="btn btn-outline">Login to Continue</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>About Us</h3>
+                    <p>We provide cutting-edge healthcare solutions using artificial intelligence to predict diseases and connect patients with qualified doctors.</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Site Map</h3>
+                    <ul class="footer-links">
+                        <li><a href="#home"><i class="fas fa-home"></i> Home</a></li>
+                        <li><a href="{{ url_for('predict_diseases') }}"><i class="fas fa-stethoscope"></i> Predict Diseases</a></li>
+                        <li><a href="{{ url_for('doctors') }}"><i class="fas fa-user-md"></i> Doctor</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Follow Us</h3>
+                    <ul class="social-links">
+                        <li><a href="https://www.facebook.com/share/163tCq9nVb/?mibextid=wwXIfr"><img src="https://img.icons8.com/color/48/null/facebook-new.png"/></a></li>
+                        <li><a href="https://www.instagram.com/ralphryannn_?igsh=MWJwZ2JjbGZvMHU0&utm_source=qr"><img src="https://img.icons8.com/fluency/48/null/instagram-new.png"/></a></li>
+                        <li><a href="https://x.com/ralphhryann?s=21"><img src="https://img.icons8.com/color/48/null/twitter--v1.png"/></a></li>
+                        <li><a href="https://www.linkedin.com/in/khaing-kyaw-zaww-b47a28338?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=ios_app"><img src="https://img.icons8.com/color/48/null/linkedin-circled--v1.png"/></a></li>
+                        <li><a href="https://youtu.be/dQw4w9WgXcQ?si=ONT6DkB224TnBEDc"><img src="https://img.icons8.com/color/48/null/youtube-play.png"/></a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 HealthCare Project. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+    <script src="{{ url_for('static', filename='custom.js') }}"></script>
+</body>
+</html>
+

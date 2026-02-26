@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diabetes Prediction - HealthCare AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
+</head>
+<body>
+    <!-- Transparent Navigation Header -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="{{ url_for('index') }}"><i class="fas fa-heartbeat"></i> HealthCare</a>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="{{ url_for('index') }}" class="nav-link">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('symptoms_check') }}" class="nav-link">
+                        <i class="fas fa-search-plus"></i> Symptom Check
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('predict_diseases') }}" class="nav-link">
+                        <i class="fas fa-stethoscope"></i> Predict Diseases
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('doctors') }}" class="nav-link">
+                        <i class="fas fa-user-md"></i> Doctor
+                    </a>
+                </li>
+                {% if username %}
+                <li class="nav-item dropdown">
+                    <a href="#profile" class="nav-link profile-link">
+                        <i class="fas fa-user-circle"></i> {{ username }}
+                        <i class="fas fa-chevron-down dropdown-arrow"></i>
+                    </a>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('view_profile') }}">
+                            <i class="fas fa-user-edit"></i> View Profile
+                        </a>
+                        <a href="{{ url_for('appointment') }}">
+                            <i class="fas fa-calendar-check"></i> Appointments
+                        </a>
+                        <a href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a href="{{ url_for('login') }}" class="nav-link">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('register') }}" class="nav-link">
+                        <i class="fas fa-user-plus"></i> Register
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="prediction-container">
+            <!-- Header Section -->
+            <div class="prediction-header">
+                <div class="header-content">
+                    <h1><i class="fas fa-tint"></i> Diabetes Prediction</h1>
+                    <p>Enter your health data to get an AI-powered diabetes risk assessment</p>
+                </div>
+            </div>
+
+            <!-- Prediction Form -->
+            <div class="prediction-form-container">
+                <form id="diabetesPredictionForm" class="prediction-form">
+                    <div class="form-section">
+                        <h3><i class="fas fa-user"></i> Basic Information</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="pregnancies">
+                                    <i class="fas fa-baby"></i>
+                                    Number of Pregnancies
+                                </label>
+                                <input type="number" id="pregnancies" name="pregnancies" min="0" max="20" required 
+                                       placeholder="Enter number of pregnancies">
+                                <small class="form-help">Total number of pregnancies (0 if male or no pregnancies)</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="age">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    Age (years)
+                                </label>
+                                <input type="number" id="age" name="age" min="1" max="120" required 
+                                       placeholder="Enter your age">
+                                <small class="form-help">Your current age in years</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3><i class="fas fa-vial"></i> Blood Test Results</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="glucose">
+                                    <i class="fas fa-tint"></i>
+                                    Glucose Level (mg/dl)
+                                </label>
+                                <input type="number" id="glucose" name="glucose" min="50" max="500" required 
+                                       placeholder="e.g., 120">
+                                <small class="form-help">Plasma glucose concentration (2 hours in an oral glucose tolerance test)</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="bloodpressure">
+                                    <i class="fas fa-heartbeat"></i>
+                                    Blood Pressure (mm Hg)
+                                </label>
+                                <input type="number" id="bloodpressure" name="bloodpressure" min="40" max="200" required 
+                                       placeholder="e.g., 80">
+                                <small class="form-help">Diastolic blood pressure</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="insulin">
+                                    <i class="fas fa-syringe"></i>
+                                    Insulin Level (mu U/ml)
+                                </label>
+                                <input type="number" id="insulin" name="insulin" min="0" max="1000" required 
+                                       placeholder="e.g., 100">
+                                <small class="form-help">2-Hour serum insulin</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3><i class="fas fa-chart-line"></i> Physical Measurements</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="skinthickness">
+                                    <i class="fas fa-ruler"></i>
+                                    Skin Thickness (mm)
+                                </label>
+                                <input type="number" id="skinthickness" name="skinthickness" min="0" max="100" required 
+                                       placeholder="e.g., 25">
+                                <small class="form-help">Triceps skin fold thickness</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="bmi">
+                                    <i class="fas fa-weight"></i>
+                                    BMI (kg/m²)
+                                </label>
+                                <input type="number" id="bmi" name="bmi" min="10" max="80" step="0.1" required 
+                                       placeholder="e.g., 25.5">
+                                <small class="form-help">Body Mass Index</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="diabetespedigreefunction">
+                                    <i class="fas fa-sitemap"></i>
+                                    Diabetes Pedigree Function
+                                </label>
+                                <input type="number" id="diabetespedigreefunction" name="diabetespedigreefunction" min="0" max="3" step="0.001" required 
+                                       placeholder="e.g., 0.627">
+                                <small class="form-help">Function which scores likelihood of diabetes based on family history</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <a href="{{ url_for('predict_diseases') }}" class="btn btn-outline btn-large">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-large">
+                            <i class="fas fa-play"></i> Get Diabetes Prediction
+                        </button>
+                        <button type="reset" class="btn btn-secondary">
+                            <i class="fas fa-undo"></i> Reset Form
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Results Section -->
+            <div id="predictionResults" class="results-container" style="display: none;">
+                <div class="results-header">
+                    <h3><i class="fas fa-chart-pie"></i> Prediction Results</h3>
+                </div>
+                <div class="results-content">
+                    <div id="predictionResult" class="result-card">
+                        <!-- Results will be displayed here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="loadingSpinner" class="loading-container" style="display: none;">
+                <div class="spinner"></div>
+                <p>Analyzing your health data...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>About Diabetes Prediction</h3>
+                    <p>Our AI-powered diabetes prediction system uses advanced machine learning algorithms to analyze your health data and provide accurate diabetes risk assessments.</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Disclaimer</h3>
+                    <p>These predictions are for informational purposes only and should not replace professional medical advice. Always consult with healthcare professionals for medical concerns.</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 HealthCare AI. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='custom.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('diabetesPredictionForm');
+            const resultsContainer = document.getElementById('predictionResults');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const resultCard = document.getElementById('predictionResult');
+
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                // Show loading spinner
+                loadingSpinner.style.display = 'block';
+                resultsContainer.style.display = 'none';
+                
+                // Get form data
+                const formData = new FormData(form);
+                const data = {};
+                for (let [key, value] of formData.entries()) {
+                    data[key] = parseFloat(value);
+                }
+                
+                try {
+                    const response = await fetch('/predict-diabetes-disease', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    // Hide loading spinner
+                    loadingSpinner.style.display = 'none';
+                    
+                    if (response.ok) {
+                        // Display results
+                        displayResults(result);
+                    } else {
+                        // Display error
+                        displayError(result.error || 'An error occurred during prediction');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    loadingSpinner.style.display = 'none';
+                    displayError('Network error. Please try again.');
+                }
+            });
+
+            function displayResults(result) {
+                const prediction = result.prediction;
+                const confidence = result.confidence || 'N/A';
+                const isPositive = prediction === 1;
+                
+                resultCard.innerHTML = `
+                    <div class="result-header ${isPositive ? 'risk-positive' : 'risk-negative'}">
+                        <div class="result-icon">
+                            <i class="fas fa-${isPositive ? 'exclamation-triangle' : 'check-circle'}"></i>
+                        </div>
+                        <div class="result-title">
+                            <h4>${isPositive ? 'Diabetes Risk Detected' : 'Low Diabetes Risk'}</h4>
+                            <p class="confidence">Confidence: ${confidence}%</p>
+                        </div>
+                    </div>
+                    <div class="result-body">
+                        <p class="result-message">
+                            ${isPositive 
+                                ? 'Based on the provided health data, our AI model indicates a potential risk of diabetes. We strongly recommend consulting with a healthcare professional for further evaluation, blood tests, and personalized medical advice.'
+                                : 'Great news! Based on the provided health data, our AI model indicates a low risk of diabetes. Continue maintaining a healthy lifestyle with regular exercise, a balanced diet, and regular health check-ups.'
+                            }
+                        </p>
+                        <div class="result-recommendations">
+                            <h5><i class="fas fa-lightbulb"></i> Recommendations:</h5>
+                            <ul>
+                                <li><i class="fas fa-utensils"></i> Maintain a balanced diet with controlled sugar intake</li>
+                                <li><i class="fas fa-running"></i> Exercise regularly (30+ minutes daily)</li>
+                                <li><i class="fas fa-weight"></i> Maintain a healthy weight and BMI</li>
+                                <li><i class="fas fa-tint"></i> Monitor blood glucose levels regularly</li>
+                                <li><i class="fas fa-stethoscope"></i> Regular health check-ups and blood tests</li>
+                                <li><i class="fas fa-ban"></i> Avoid excessive alcohol and smoking</li>
+                            </ul>
+                        </div>
+                        <div class="result-disclaimer">
+                            <p><i class="fas fa-info-circle"></i> <strong>Medical Disclaimer:</strong> This prediction is for informational purposes only and should not replace professional medical advice, diagnosis, or treatment.</p>
+                        </div>
+                        ${isPositive ? `
+                        <div class="result-actions">
+                            <a href="{{ url_for('doctors') }}" class="btn btn-primary doctor-consultation-btn">
+                                <i class="fas fa-user-md"></i> Consult Doctor Now
+                            </a>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                resultsContainer.style.display = 'block';
+                resultsContainer.scrollIntoView({ behavior: 'smooth' });
+            }
+
+            function displayError(errorMessage) {
+                resultCard.innerHTML = `
+                    <div class="result-header error">
+                        <div class="result-icon">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </div>
+                        <div class="result-title">
+                            <h4>Prediction Error</h4>
+                        </div>
+                    </div>
+                    <div class="result-body">
+                        <p class="result-message">${errorMessage}</p>
+                        <div class="result-actions">
+                            <button class="btn btn-primary" onclick="location.reload()">
+                                <i class="fas fa-refresh"></i> Try Again
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                resultsContainer.style.display = 'block';
+                resultsContainer.scrollIntoView({ behavior: 'smooth' });
+            }
+
+            // Form validation
+            const inputs = form.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                input.addEventListener('blur', function() {
+                    validateField(this);
+                });
+            });
+
+            function validateField(field) {
+                const value = field.value.trim();
+                const isValid = field.checkValidity();
+                
+                if (!isValid || !value) {
+                    field.classList.add('error');
+                    field.classList.remove('success');
+                } else {
+                    field.classList.remove('error');
+                    field.classList.add('success');
+                }
+            }
+
+        });
+    </script>
+</body>
+</html>

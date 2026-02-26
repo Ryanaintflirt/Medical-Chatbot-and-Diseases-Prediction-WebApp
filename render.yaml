@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: medical-chatbot
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+      - key: FIREBASE_API_KEY
+        sync: false
+      - key: FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: FIREBASE_APP_ID
+        sync: false
+      - key: FIREBASE_MEASUREMENT_ID
+        sync: false
+      - key: FIREBASE_DATABASE_URL
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: AiApi_Key
+        sync: false
+      - key: AI_Url
+        value: https://openrouter.ai/api/v1/chat/completions
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: url
+        sync: false
+      - key: DapiKey
+        sync: false

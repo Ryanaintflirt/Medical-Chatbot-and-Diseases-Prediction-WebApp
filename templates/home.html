@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Health Assistant - HealthCare Project</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
+</head>
+<body>
+    <!-- Navigation Header -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="{{ url_for('index') }}">
+                    <i class="fas fa-heartbeat"></i> HealthCare AI
+                </a>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="{{ url_for('index') }}" class="nav-link">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('symptoms_check') }}" class="nav-link">
+                        <i class="fas fa-search-plus"></i> Symptom Check
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('predict_diseases') }}" class="nav-link">
+                        <i class="fas fa-stethoscope"></i> Predict Diseases
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#doctor" class="nav-link">
+                        <i class="fas fa-user-md"></i> Doctor
+                    </a>
+                </li>
+                {% if username %}
+                <li class="nav-item dropdown">
+                    <a href="#profile" class="nav-link profile-link">
+                        <i class="fas fa-user-circle"></i> {{ username }}
+                        <i class="fas fa-chevron-down dropdown-arrow"></i>
+                    </a>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('view_profile') }}">
+                            <i class="fas fa-user-edit"></i> View Profile
+                        </a>
+                        <a href="{{ url_for('appointment') }}">
+                            <i class="fas fa-calendar-check"></i>  Appointments
+                        </a>
+                        <a href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a href="{{ url_for('login') }}" class="nav-link">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Chat Container -->
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="chat-title">
+                <i class="fas fa-robot"></i>
+                <h2>AI Health Assistant</h2>
+            </div>
+            <div class="chat-subtitle">
+                <p>Ask me anything about health, symptoms, or medical advice</p>
+            </div>
+        </div>
+
+        <!-- Chat Messages Area -->
+        <div class="chat-messages" id="chatMessages">
+            <!-- Welcome Message -->
+            <div class="message ai-message">
+                <div class="message-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message-content">
+                    <div class="message-text">
+                        <p>Hello! I'm your AI Health Assistant. I'm here to help you with health-related questions, symptom analysis, and general medical information. How can I assist you today?</p>
+                    </div>
+                    <div class="message-time">
+                        <span id="welcomeTime"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Input Area -->
+        <div class="chat-input-container">
+            <div class="typing-indicator typing-indicator-floating" id="typingIndicator" style="display: none;">
+                <div class="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+            <div class="chat-input-wrapper">
+                <div class="input-group">
+                    <textarea 
+                        id="messageInput" 
+                        class="message-input" 
+                        placeholder="Type your health question here..."
+                        rows="1"
+                        maxlength="1000"
+                    ></textarea>
+                    <button id="sendButton" class="send-button" type="button">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div class="input-footer">
+                    <div class="char-counter">
+                        <span id="charCount">0</span>/1000
+                    </div>
+                    <div class="quick-actions">
+                        <button class="quick-btn" data-message="What are the symptoms of diabetes?">
+                            <i class="fas fa-tint"></i> Diabetes
+                        </button>
+                        <button class="quick-btn" data-message="How to maintain a healthy heart?">
+                            <i class="fas fa-heart"></i> Heart Health
+                        </button>
+                        <button class="quick-btn" data-message="What are common cold symptoms?">
+                            <i class="fas fa-thermometer-half"></i> Cold Symptoms
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-robot fa-spin"></i>
+            <p>AI is thinking...</p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='custom.js') }}"></script>
+    <script>
+        // Set welcome message time
+        document.getElementById('welcomeTime').textContent = new Date().toLocaleTimeString();
+    </script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # Flask Configuration
+      - FLASK_APP=app.py
+      - FLASK_ENV=production
+      
+      # Firebase Configuration (provide these values)
+      - FIREBASE_API_KEY=${FIREBASE_API_KEY}
+      - FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}
+      - FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID}
+      - FIREBASE_APP_ID=${FIREBASE_APP_ID}
+      - FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID}
+      - FIREBASE_DATABASE_URL=${FIREBASE_DATABASE_URL}
+      
+      # AI API Configuration (provide these values)
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - AiApi_Key=${AiApi_Key}
+      - AI_Url=${AI_Url:-https://openrouter.ai/api/v1/chat/completions}
+      
+      # Optional: Pinecone (if using vector database)
+      - PINECONE_API_KEY=${PINECONE_API_KEY:-}
+      
+      # Optional: Azure API for symptom checker
+      - url=${AZURE_SYMPTOM_API_URL:-}
+      - DapiKey=${AZURE_SYMPTOM_API_KEY:-}
+    
+    volumes:
+      # Persist database
+      - ./instance:/app/instance
+      # Persist models
+      - ./saved_models:/app/saved_models
+      # Persist data
+      - ./data:/app/data
+    
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

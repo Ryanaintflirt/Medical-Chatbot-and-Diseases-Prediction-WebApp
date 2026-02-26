@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Symptom Checker - HealthCare AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
+</head>
+<body>
+    <!-- Navigation Header -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="{{ url_for('index') }}">
+                    <i class="fas fa-heartbeat"></i> HealthCare AI
+                </a>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="{{ url_for('index') }}" class="nav-link">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('symptoms_check') }}" class="nav-link active">
+                        <i class="fas fa-search-plus"></i> Symptom Check
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('predict_diseases') }}" class="nav-link">
+                        <i class="fas fa-stethoscope"></i> Predict Diseases
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('doctors') }}" class="nav-link">
+                        <i class="fas fa-user-md"></i> Doctor
+                    </a>
+                </li>
+                {% if username %}
+                <li class="nav-item dropdown">
+                    <a href="#profile" class="nav-link profile-link">
+                        <i class="fas fa-user-circle"></i> {{ username }}
+                        <i class="fas fa-chevron-down dropdown-arrow"></i>
+                    </a>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('view_profile') }}">
+                            <i class="fas fa-user-edit"></i> View Profile
+                        </a>
+                        <a href="{{ url_for('appointment') }}">
+                            <i class="fas fa-calendar-check"></i> Appointments
+                        </a>
+                        <a href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a href="{{ url_for('login') }}" class="nav-link">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="symptom-checker-container">
+            <!-- Header Section -->
+            <div class="prediction-header">
+                <div class="header-content">
+                    <h1><i class="fas fa-search-plus"></i> AI Symptom Checker</h1>
+                    <p>Describe your symptoms and get AI-powered diagnostic insights. Provide detailed information for the most accurate results.</p>
+                </div>
+            </div>
+
+            <!-- Symptom Checker Form -->
+            <div class="symptom-form-container">
+                <form id="symptomForm" class="symptom-form">
+                    <div class="symptom-form-section">
+                        <h3><i class="fas fa-user"></i> Patient Information</h3>
+                        <div class="symptom-form-row">
+                            <div class="symptom-form-group">
+                                <label for="age">
+                                    <i class="fas fa-calendar-alt"></i> Age
+                                    <span class="symptom-required">*</span>
+                                </label>
+                                <input type="number" id="age" name="age" min="1" max="120" required 
+                                       placeholder="Enter your age" class="symptom-form-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="gender">
+                                    <i class="fas fa-venus-mars"></i> Gender
+                                    <span class="symptom-required">*</span>
+                                </label>
+                                <select id="gender" name="gender" required class="symptom-form-select">
+                                    <option value="">Select Gender</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="symptom-form-section">
+                        <h3><i class="fas fa-exclamation-triangle"></i> Main Symptoms</h3>
+                        <div class="symptom-form-group">
+                            <label for="mainSymptoms">
+                                <i class="fas fa-stethoscope"></i> Describe your main symptoms
+                                <span class="symptom-required">*</span>
+                            </label>
+                            <textarea id="mainSymptoms" name="mainSymptoms" rows="4" required 
+                                      placeholder="Describe your symptoms in detail. Include location, intensity, duration, and any associated symptoms..." 
+                                      class="symptom-form-textarea" maxlength="2000"></textarea>
+                            <div class="symptom-char-counter">
+                                <span id="symptomCharCount">0</span>/2000 characters
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="symptom-form-section">
+                        <h3><i class="fas fa-clock"></i> Symptom Timeline</h3>
+                        <div class="symptom-form-row">
+                            <div class="form-group">
+                                <label for="onsetTime">
+                                    <i class="fas fa-calendar-check"></i> When did symptoms start?
+                                    <span class="symptom-required">*</span>
+                                </label>
+                                <select id="onsetTime" name="onsetTime" required class="symptom-form-select">
+                                    <option value="">Select timeframe</option>
+                                    <option value="today">Today</option>
+                                    <option value="1-3 days">1-3 days ago</option>
+                                    <option value="1 week">About 1 week ago</option>
+                                    <option value="2-3 weeks">2-3 weeks ago</option>
+                                    <option value="1 month">About 1 month ago</option>
+                                    <option value="2-3 months">2-3 months ago</option>
+                                    <option value="6 months">6 months ago</option>
+                                    <option value="1 year">1 year ago</option>
+                                    <option value="longer">Longer than 1 year</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="severity">
+                                    <i class="fas fa-chart-line"></i> Severity Level
+                                    <span class="symptom-required">*</span>
+                                </label>
+                                <select id="severity" name="severity" required class="symptom-form-select">
+                                    <option value="">Select severity</option>
+                                    <option value="mild">Mild - Noticeable but not interfering with daily activities</option>
+                                    <option value="moderate">Moderate - Affecting daily activities but manageable</option>
+                                    <option value="severe">Severe - Significantly impacting daily life</option>
+                                    <option value="critical">Critical - Emergency level, seeking immediate care</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="symptom-form-section">
+                        <h3><i class="fas fa-history"></i> Medical History (Optional)</h3>
+                        <div class="symptom-form-group">
+                            <label for="medicalHistory">
+                                <i class="fas fa-file-medical"></i> Relevant medical history
+                            </label>
+                            <textarea id="medicalHistory" name="medicalHistory" rows="3" 
+                                      placeholder="Include any relevant medical conditions, medications, allergies, or family history..." 
+                                      class="symptom-form-textarea" maxlength="1000"></textarea>
+                            <div class="symptom-char-counter">
+                                <span id="historyCharCount">0</span>/1000 characters
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="symptom-form-section">
+                        <h3><i class="fas fa-plus-circle"></i> Additional Information (Optional)</h3>
+                        <div class="symptom-form-group">
+                            <label for="additionalInfo">
+                                <i class="fas fa-info-circle"></i> Any other relevant information
+                            </label>
+                            <textarea id="additionalInfo" name="additionalInfo" rows="2" 
+                                      placeholder="Include any triggers, relieving factors, recent changes, or other relevant details..." 
+                                      class="symptom-form-textarea" maxlength="500"></textarea>
+                            <div class="symptom-char-counter">
+                                <span id="additionalCharCount">0</span>/500 characters
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="symptom-form-actions">
+                        <button type="button" id="clearForm" class="btn btn-secondary">
+                            <i class="fas fa-eraser"></i> Clear Form
+                        </button>
+                        <button type="submit" id="submitForm" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Analyze Symptoms
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" class="symptom-results-section" style="display: none;">
+                <div class="symptom-results-header">
+                    <h2><i class="fas fa-clipboard-list"></i> Diagnostic Analysis</h2>
+                    <p>Based on your symptoms, here are the possible diagnoses:</p>
+                </div>
+                <div id="resultsContent" class="results-content">
+                    <!-- Results will be populated here -->
+                </div>
+                <div class="symptom-results-footer">
+                    <div class="symptom-disclaimer">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Important:</strong> This analysis is for informational purposes only and should not replace professional medical advice. Please consult with a healthcare professional for proper diagnosis and treatment.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="loadingSpinner" class="loading-container" style="display: none;">
+                <div class="spinner"></div>
+                <p>Analyzing your symptoms...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>About Symptom Checker</h3>
+                    <p>Our AI-powered symptom checker analyzes your symptoms using advanced medical knowledge to provide possible diagnoses and recommendations.</p>
+                </div>
+                <div class="footer-section">
+                    <h3>How It Works</h3>
+                    <ul class="footer-links">
+                        <li><i class="fas fa-user"></i> Enter your information</li>
+                        <li><i class="fas fa-stethoscope"></i> Describe your symptoms</li>
+                        <li><i class="fas fa-robot"></i> Get AI analysis</li>
+                        <li><i class="fas fa-user-md"></i> Consult a doctor</li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Disclaimer</h3>
+                    <p>This tool is for informational purposes only and should not replace professional medical advice. Always consult with healthcare professionals for proper diagnosis.</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 HealthCare AI. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='custom.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Profile - HealthCare Project</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation Header -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="{{ url_for('index') }}">
+                    <i class="fas fa-heartbeat"></i> HealthCare AI
+                </a>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="{{ url_for('index') }}" class="nav-link">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('symptoms_check') }}" class="nav-link">
+                        <i class="fas fa-search-plus"></i> Symptom Check
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('predict_diseases') }}" class="nav-link">
+                        <i class="fas fa-stethoscope"></i> Predict Diseases
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('doctors') }}" class="nav-link">
+                        <i class="fas fa-user-md"></i> Doctor
+                    </a>
+                </li>
+                {% if username %}
+                <li class="nav-item dropdown">
+                    <a href="#profile" class="nav-link profile-link">
+                        <i class="fas fa-user-circle"></i> {{ username }}
+                        <i class="fas fa-chevron-down dropdown-arrow"></i>
+                    </a>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('view_profile') }}">
+                            <i class="fas fa-user-edit"></i> View Profile
+                        </a>
+                        <a href="{{ url_for('appointment') }}">
+                            <i class="fas fa-calendar-check"></i> Appointments
+                        </a>
+                        <a href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a href="{{ url_for('login') }}" class="nav-link">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="prediction-container">
+            <!-- Header -->
+            <div class="prediction-header">
+                <div class="header-content">
+                    <h1><i class="fas fa-calendar-plus"></i> My Appointments</h1>
+                    <p>View and manage your appointments with healthcare professionals</p>
+                </div>
+            </div>
+
+            <!-- Appointment Form Card (if doctor_id in URL) -->
+            {% if doctor %}
+            <div class="prediction-form-container">
+                <h2 style="color: #000; margin-bottom: 1rem;">Book Appointment with Dr. {{ doctor.full_name }}</h2>
+                <form id="appointmentForm" class="form-grid" method="POST">
+                    <div class="form-group">
+                        <label for="appointment_date">Appointment Date</label>
+                        <input type="date" id="appointment_date" name="appointment_date" class="input-field" required min="{{ today }}" max="{{ max_date }}">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="appointment_time">Appointment Time</label>
+                        <input type="time" id="appointment_time" name="appointment_time" class="input-field" required>
+                    </div>
+
+                    <input type="hidden" name="doctor_id" value="{{ doctor.id }}">
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check"></i> Book Appointment
+                        </button>
+                        <button type="button" id="cancelAppointmentBtn" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+
+            <!-- Appointments List -->
+            <div class="prediction-form-container" style="margin-top: 2rem;">
+                <h2 style="color: #000; margin-bottom: 1rem;">Your Appointments</h2>
+                {% if appointments %}
+                    <div class="appointments-list">
+                        {% for appointment in appointments %}
+                        <div class="appointment-card">
+                            <div class="appointment-info">
+                                <h3>Dr. {{ appointment.doctor.full_name }}</h3>
+                                <p class="specialty">{{ appointment.doctor.specialty }}</p>
+                                <div class="appointment-details">
+                                    <div class="detail-item">
+                                        <i class="fas fa-calendar-alt"></i>
+                                        <span>{{ appointment.appointment_date.strftime('%B %d, %Y') }}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-clock"></i>
+                                        <span>{{ appointment.appointment_time.strftime('%I:%M %p') }}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-info-circle"></i>
+                                        <span>Status: {{ appointment.status }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="coming-soon-content">
+                        <div class="coming-soon-icon">
+                            <i class="fas fa-calendar-times"></i>
+                        </div>
+                        <h3>No Appointments Yet</h3>
+                        <p>You haven't booked any appointments. Visit the <a href="{{ url_for('doctors') }}">Doctors page</a> to book an appointment.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Appointment Policy</h3>
+                    <p>Please arrive 10 minutes before your scheduled time. For cancellations, notify us at least 24 hours in advance.</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Help</h3>
+                    <p>Contact support for booking assistance or questions about consultation.</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 HealthCare AI. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('appointmentForm');
+            const cancelBtn = document.getElementById('cancelAppointmentBtn');
+
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', function() {
+                    window.location.href = '/doctors';
+                });
+            }
+
+            if (form) {
+                form.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const fd = new FormData(form);
+                    const payload = Object.fromEntries(fd.entries());
+
+                    try {
+                        const res = await fetch('/appointments', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || 'Failed to book appointment');
+                        alert('Appointment booked successfully!');
+                        window.location.href = '/appointment';
+                    } catch (err) {
+                        alert(err.message || 'Booking failed');
+                    }
+                });
+            }
+        });
+    </script>
+    <script src="{{ url_for('static', filename='custom.js') }}"></script>
+</body>
+</html>
+
+
