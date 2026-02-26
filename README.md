@@ -410,7 +410,10 @@ This project is part of a Diploma HDITC COS209 Project.
 
 ---
 
-**Note**: This is an educational project. For production use, additional security measures, error handling, and compliance with healthcare regulations (such as HIPAA) should be implemented.#   M e d i c a l - C h a t b o t - a n d - D i s e a s e s - P r e d i c t i o n - W e b A p p  
- #   M e d i c a l - C h a t b o t - a n d - D i s e a s e s - P r e d i c t i o n - W e b A p p  
- #   M e d i c a l - C h a t b o t - a n d - D i s e a s e s - P r e d i c t i o n - W e b A p p  
+**Note**: This is an educational project. For production use, additional security measures, error handling, and compliance with healthcare regulations (such as HIPAA) should be implemented.#  M e d i c a l - C h a t b o t - a n d - D i s e a s e s - P r e d i c t i o n - W e b A p p 
+ 
+ #   M e d i c a l - C h a t b o t - a n d - D i s e a s e s - P r e d i c t i o n - W e b A p p 
+ 
+ #   M e d i c a l - C h a t b o t - a n d - D i s e a s e s - P r e d i c t i o n - W e b A p p 
+ 
  
