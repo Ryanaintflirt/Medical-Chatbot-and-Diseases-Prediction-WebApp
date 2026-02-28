@@ -24,12 +24,10 @@ services:
         sync: false
       - key: FIREBASE_DATABASE_URL
         sync: false
-      - key: DEEPSEEK_API_KEY
+      - key: GEMINI_API_KEY
         sync: false
-      - key: AiApi_Key
-        sync: false
-      - key: AI_Url
-        value: https://openrouter.ai/api/v1/chat/completions
+      - key: GEMINI_MODEL
+        value: gemini-3-flash-preview
       - key: PINECONE_API_KEY
         sync: false
       - key: url

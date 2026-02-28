@@ -5,7 +5,7 @@ A comprehensive healthcare web application that combines AI-powered medical chat
 ## 🚀 Features
 
 ### Core Functionality
-- **AI Medical Chatbot**: Interactive chatbot powered by DeepSeek AI that provides health-related information and advice
+- **AI Medical Chatbot**: Interactive chatbot powered by Gemini that provides health-related information and advice
 - **Disease Prediction**: Machine learning models for predicting:
   - Heart Disease
   - Diabetes
@@ -43,7 +43,7 @@ A comprehensive healthcare web application that combines AI-powered medical chat
 - **pandas 2.0.3**: Data manipulation
 
 ### AI & NLP
-- **DeepSeek AI API**: Medical chatbot via OpenRouter
+- **Gemini API**: Medical chatbot using Google's generative models
 - **LangChain 0.0.350**: PDF document processing
 - **sentence-transformers 2.2.2**: Text embeddings
 
@@ -57,7 +57,7 @@ A comprehensive healthcare web application that combines AI-powered medical chat
 
 ### External Services
 - **Firebase**: Google authentication
-- **OpenRouter API**: AI chatbot service
+- **Gemini API**: AI chatbot service
 - **Azure API**: Symptom diagnosis service
 
 ## 📋 Prerequisites
@@ -104,8 +104,14 @@ A comprehensive healthcare web application that combines AI-powered medical chat
    FIREBASE_MEASUREMENT_ID=your_firebase_measurement_id
    FIREBASE_DATABASE_URL=your_firebase_database_url
    
-   # DeepSeek AI API Key
-   DEEPSEEK_API_KEY=your_deepseek_api_key
+   # Gemini API (Required)
+   GEMINI_API_KEY=your_gemini_api_key
+   # Optional: override model
+   GEMINI_MODEL=gemini-3-flash-preview
+
+   # Optional: Azure Symptom Checker
+   DUrl=https://your-azure-endpoint/api/diagnose
+   DapiKey=your_azure_subscription_key
    ```
 
 5. **Initialize the database**
@@ -384,8 +390,7 @@ For detailed deployment instructions on various platforms (Heroku, Railway, Rend
 
 Before deploying, you'll need:
 - **Firebase** credentials (for authentication)
-- **DeepSeek API** key (for AI chatbot)
-- **OpenRouter API** key (for chatbot routing)
+- **Gemini API** key (for AI chatbot)
 - Optional: Azure API (for symptom checker)
 - Optional: Pinecone API (for vector database)
 
@@ -402,8 +407,8 @@ This project is part of a Diploma HDITC COS209 Project.
 
 ## 🙏 Acknowledgments
 
-- DeepSeek AI for chatbot capabilities
-- OpenRouter for API access
+- Gemini AI for chatbot capabilities
+- Google AI Studio / Gemini API for generative responses
 - Azure API for symptom diagnosis
 - Firebase for authentication services
 - scikit-learn community for ML tools

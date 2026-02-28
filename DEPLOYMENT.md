@@ -21,8 +21,7 @@ Before deploying, ensure you have:
 
 1. **API Keys Ready:**
    - Firebase project credentials
-   - DeepSeek API key
-   - OpenRouter API key
+   - Gemini API key
    - (Optional) Azure Symptom API credentials
    - (Optional) Pinecone API key
 
@@ -59,9 +58,9 @@ FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 FIREBASE_DATABASE_URL=https://your_project.firebaseio.com
 
 # AI API Keys (Required)
-DEEPSEEK_API_KEY=your_deepseek_key
-AiApi_Key=your_openrouter_key
-AI_Url=https://openrouter.ai/api/v1/chat/completions
+GEMINI_API_KEY=your_gemini_key
+# Optional: override model
+GEMINI_MODEL=gemini-3-flash-preview
 
 # Optional APIs
 PINECONE_API_KEY=your_pinecone_key
@@ -114,8 +113,8 @@ Docker provides the easiest and most consistent deployment experience.
      -p 8080:8080 \
      --name medical-chatbot \
      -e FIREBASE_API_KEY=your_key \
-     -e DEEPSEEK_API_KEY=your_key \
-     -e AiApi_Key=your_key \
+   -e GEMINI_API_KEY=your_key \
+   -e GEMINI_MODEL=gemini-3-flash-preview \
      -v $(pwd)/instance:/app/instance \
      -v $(pwd)/saved_models:/app/saved_models \
      medical-chatbot
@@ -151,9 +150,8 @@ Docker provides the easiest and most consistent deployment experience.
    heroku config:set FIREBASE_APP_ID=your_app_id
    heroku config:set FIREBASE_MEASUREMENT_ID=your_measurement_id
    heroku config:set FIREBASE_DATABASE_URL=your_database_url
-   heroku config:set DEEPSEEK_API_KEY=your_deepseek_key
-   heroku config:set AiApi_Key=your_openrouter_key
-   heroku config:set AI_Url=https://openrouter.ai/api/v1/chat/completions
+   heroku config:set GEMINI_API_KEY=your_gemini_key
+   heroku config:set GEMINI_MODEL=gemini-3-flash-preview
    ```
 
 5. **Create Procfile:**
@@ -224,10 +222,10 @@ Docker provides the easiest and most consistent deployment experience.
            value: 3.9.0
          - key: FIREBASE_API_KEY
            sync: false
-         - key: DEEPSEEK_API_KEY
-           sync: false
-         - key: AiApi_Key
-           sync: false
+            - key: GEMINI_API_KEY
+               sync: false
+            - key: GEMINI_MODEL
+               value: gemini-3-flash-preview
    ```
 
 2. **Connect to Render:**
@@ -255,10 +253,10 @@ Docker provides the easiest and most consistent deployment experience.
      envs:
      - key: FIREBASE_API_KEY
        value: ${FIREBASE_API_KEY}
-     - key: DEEPSEEK_API_KEY
-       value: ${DEEPSEEK_API_KEY}
-     - key: AiApi_Key
-       value: ${AiApi_Key}
+      - key: GEMINI_API_KEY
+         value: ${GEMINI_API_KEY}
+      - key: GEMINI_MODEL
+         value: ${GEMINI_MODEL}
    ```
 
 2. **Deploy via DigitalOcean Dashboard:**
@@ -287,7 +285,7 @@ Docker provides the easiest and most consistent deployment experience.
 
 4. **Set environment variables:**
    ```bash
-   eb setenv FIREBASE_API_KEY=your_key DEEPSEEK_API_KEY=your_key AiApi_Key=your_key
+   eb setenv FIREBASE_API_KEY=your_key GEMINI_API_KEY=your_key GEMINI_MODEL=gemini-3-flash-preview
    ```
 
 5. **Deploy:**

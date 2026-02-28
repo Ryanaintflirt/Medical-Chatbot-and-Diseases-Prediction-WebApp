@@ -21,9 +21,8 @@ services:
       - FIREBASE_DATABASE_URL=${FIREBASE_DATABASE_URL}
       
       # AI API Configuration (provide these values)
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
-      - AiApi_Key=${AiApi_Key}
-      - AI_Url=${AI_Url:-https://openrouter.ai/api/v1/chat/completions}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3-flash-preview}
       
       # Optional: Pinecone (if using vector database)
       - PINECONE_API_KEY=${PINECONE_API_KEY:-}

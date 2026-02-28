@@ -6,8 +6,8 @@ This guide will help you deploy your Medical Chatbot WebApp in just a few minute
 
 You need to have your API keys ready:
 1. **Firebase credentials** - Get from [Firebase Console](https://console.firebase.google.com/)
-2. **DeepSeek API key** - Get from [DeepSeek Platform](https://platform.deepseek.com/)
-3. **OpenRouter API key** - Get from [OpenRouter](https://openrouter.ai/)
+2. **Gemini API key** - Get from [Google AI Studio](https://aistudio.google.com/)
+3. **Azure Symptom Checker API** (optional) - Get from [Azure](https://azure.microsoft.com/)
 
 ## Option 1: Docker Deployment (Easiest - Recommended)
 
@@ -21,6 +21,8 @@ You need to have your API keys ready:
 cp .env.example SECRET.env
 
 # Edit SECRET.env and add your API keys
+# Required: GEMINI_API_KEY, Firebase keys
+# Optional: GEMINI_MODEL, DUrl, DapiKey
 nano SECRET.env  # or use any text editor
 ```
 
@@ -65,9 +67,8 @@ heroku config:set FIREBASE_APP_ID=your_app_id
 heroku config:set FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 heroku config:set FIREBASE_DATABASE_URL=https://your_project.firebaseio.com
 
-heroku config:set DEEPSEEK_API_KEY=your_deepseek_key
-heroku config:set AiApi_Key=your_openrouter_key
-heroku config:set AI_Url=https://openrouter.ai/api/v1/chat/completions
+heroku config:set GEMINI_API_KEY=your_gemini_key
+heroku config:set GEMINI_MODEL=gemini-3-flash-preview
 ```
 
 ### Step 4: Deploy
@@ -149,7 +150,7 @@ Click "Create Web Service" and Render will automatically deploy!
 → Visit `/init-db` and `/populate-doctors` endpoints
 
 ### "AI Chatbot not responding"
-→ Check your DEEPSEEK_API_KEY and AiApi_Key are correct
+→ Check your GEMINI_API_KEY (and optional GEMINI_MODEL) are correct
 
 ### "Google Sign-In not working"
 → Add your deployment URL to Firebase authorized domains:

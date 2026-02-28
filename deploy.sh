@@ -10,7 +10,7 @@ echo "Medical Chatbot Deployment Helper"
 echo "=========================================="
 echo ""
 
-# Check if .env or SECRET.env exists
+# Check if .env exists
 if [ ! -f "SECRET.env" ] && [ ! -f ".env" ]; then
     echo "⚠️  No environment file found!"
     echo "Please create SECRET.env with your API keys."
