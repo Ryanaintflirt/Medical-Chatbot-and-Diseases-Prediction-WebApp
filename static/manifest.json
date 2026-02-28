@@ -1,0 +1,24 @@
+{
+  "name": "Medical Chatbot and Diseases Prediction WebApp",
+  "short_name": "HealthCare AI",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/static/image/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/image/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "description": "AI-powered medical chatbot with disease prediction and symptom checking.",
+  "lang": "en"
+}
