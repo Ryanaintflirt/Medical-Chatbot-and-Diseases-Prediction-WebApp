@@ -49,6 +49,12 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'  # type: ignore[attr-defined]
 login_manager.login_message = 'Please log in to access this page.'
 
+@login_manager.unauthorized_handler
+def unauthorized():
+    if request.method == 'DELETE':
+        return jsonify({'error': 'Authentication required'}), 401
+    return redirect(url_for('login', next=request.path))
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -1069,15 +1075,20 @@ def update_medical_info():
 def delete_profile():
     """Route to handle profile deletion"""
     try:
-        user = current_user
+        user_id = current_user.id
+        user = User.query.get(user_id)
+
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
         username = user.username
-        
-        # Logout user first
-        logout_user()
-        
-        # Delete user from database
+
+        # Delete user from database using the mapped SQLAlchemy instance
         db.session.delete(user)
         db.session.commit()
+
+        # End session after successful deletion
+        logout_user()
         
         print(f"Profile deleted for user {username}")
         
