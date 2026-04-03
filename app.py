@@ -37,12 +37,18 @@ ML_MODELS = load_models()
 # TODO: Move secret key to environment variables for production
 app.secret_key = 'temporary-secret-key-for-development-12345'
 
-# Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///healthcare_users.db'
+# Database configuration (use instance/ so path does not depend on cwd)
+os.makedirs(app.instance_path, exist_ok=True)
+app.config['SQLALCHEMY_DATABASE_URI'] = (
+    'sqlite:///' + os.path.join(app.instance_path, 'healthcare_users.db')
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize extensions
 db.init_app(app)
+# Create tables if missing (avoids "no such table" when /init-db was never run)
+with app.app_context():
+    db.create_all()
 CORS(app)
 
 # Flask-Login setup
