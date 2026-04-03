@@ -1,3 +1,4 @@
+import re
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -16,8 +17,8 @@ class User(UserMixin, db.Model):
     full_name = db.Column(db.String(100), nullable=True)
     
     # Authentication method tracking
-    auth_method = db.Column(db.String(20), nullable=False, default='custom')  # 'custom' or 'google'
-    firebase_uid = db.Column(db.String(128), unique=True, nullable=True)  # Firebase UID for Google users
+    auth_method = db.Column(db.String(20), nullable=False, default='custom')  # 'custom', 'google', or 'firebase'
+    firebase_uid = db.Column(db.String(128), unique=True, nullable=True)  # Firebase UID (Google or email/password)
     
     # Account linking
     linked_accounts = db.Column(db.JSON, nullable=True)  # Store linked account info
@@ -82,6 +83,37 @@ class User(UserMixin, db.Model):
             profile_picture=profile_picture
         )
         
+        db.session.add(user)
+        db.session.commit()
+        return user
+
+    @staticmethod
+    def create_firebase_password_user(firebase_uid, email, full_name=None, username=None):
+        """Create a user signed up with Firebase Email/Password (not Google OAuth)."""
+        if username and isinstance(username, str):
+            username = username.strip()
+            if not re.match(r'^[a-zA-Z0-9_]{3,80}$', username):
+                username = None
+        if not username:
+            username = (
+                full_name.lower().replace(' ', '_')
+                if full_name
+                else email.split('@')[0]
+            )
+        original_username = username
+        counter = 1
+        while User.query.filter_by(username=username).first():
+            username = f"{original_username}_{counter}"
+            counter += 1
+
+        user = User(
+            username=username,
+            email=email,
+            full_name=full_name,
+            auth_method='firebase',
+            firebase_uid=firebase_uid,
+            profile_picture=None,
+        )
         db.session.add(user)
         db.session.commit()
         return user

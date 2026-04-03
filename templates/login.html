@@ -33,14 +33,7 @@
                 {% endif %}
             {% endwith %}
             
-            <!-- Authentication Method Toggle -->
-            <div class="auth-toggle">
-                <button type="button" id="customAuthBtn" class="auth-toggle-btn active">Email & Password</button>
-                <button type="button" id="googleAuthBtn" class="auth-toggle-btn">Google Sign-In</button>
-            </div>
-            
-            <!-- Custom Email/Password Form -->
-            <form id="customLoginForm" class="auth-form active">
+            <form id="customLoginForm">
                 <div class="input_box">
                     <input type="email" id="email" class="input-field" required>
                     <label for="email" class="label">Email</label>
@@ -63,17 +56,16 @@
                 <div class="input_box">
                     <button type="submit" class="input-submit">Login</button>
                 </div>
-            </form>
-            
-            <!-- Google Sign In Form -->
-            <div id="googleLoginForm" class="auth-form">
-                <div class="google-signin">
-                    <button type="button" id="googleSignIn" class="google-btn">
-                        <i class="bx bxl-google"></i>
-                        Sign in with Google
-                    </button>
+
+                <div class="auth-oauth-below">
+                    <div class="google-signin">
+                        <button type="button" id="googleSignIn" class="google-btn">
+                            <i class="bx bxl-google"></i>
+                            Sign in with Google
+                        </button>
+                    </div>
                 </div>
-            </div>
+            </form>
             
             <div class="register">
                 <span>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></span>
@@ -109,38 +101,9 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM loaded, adding event listeners');
             
-            // Debug: Check if elements exist
-            const customAuthBtn = document.getElementById('customAuthBtn');
-            const googleAuthBtn = document.getElementById('googleAuthBtn');
-            const customLoginForm = document.getElementById('customLoginForm');
-            const googleSignIn = document.getElementById('googleSignIn');
-            
-            console.log('Elements found:', {
-                customAuthBtn: !!customAuthBtn,
-                googleAuthBtn: !!googleAuthBtn,
-                customLoginForm: !!customLoginForm,
-                googleSignIn: !!googleSignIn
-            });
-            
-            // Authentication method toggle
-            document.getElementById('customAuthBtn').addEventListener('click', () => {
-                document.getElementById('customLoginForm').classList.add('active');
-                document.getElementById('googleLoginForm').classList.remove('active');
-                document.getElementById('customAuthBtn').classList.add('active');
-                document.getElementById('googleAuthBtn').classList.remove('active');
-            });
-            
-            document.getElementById('googleAuthBtn').addEventListener('click', () => {
-                document.getElementById('customLoginForm').classList.remove('active');
-                document.getElementById('googleLoginForm').classList.add('active');
-                document.getElementById('customAuthBtn').classList.remove('active');
-                document.getElementById('googleAuthBtn').classList.add('active');
-            });
-        
-            // Custom login form submission
+            // Email/password login form submission
             document.getElementById('customLoginForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
-                console.log('Custom login form submitted');
                 
                 // Get the submit button and disable it to prevent multiple submissions
                 const submitButton = e.target.querySelector('button[type="submit"]');
@@ -167,34 +130,41 @@
                 }
                 
                 try {
-                    console.log('Attempting custom login with email:', email);
-                    
-                    // Send credentials to backend
+                    if (!auth) {
+                        showError('Firebase authentication not initialized');
+                        reEnableButton();
+                        return;
+                    }
+                    await auth.signInWithEmailAndPassword(email, password);
+                    const idToken = await auth.currentUser.getIdToken();
                     const response = await fetch('/login', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ 
-                            authType: 'custom',
-                            email: email,
-                            password: password
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            authType: 'firebase',
+                            idToken: idToken
                         })
                     });
-                    
-                    console.log('Backend response status:', response.status);
                     const result = await response.json();
-                    console.log('Backend response:', result);
-                    
                     if (result.success) {
-                        window.location.href = '/dashboard';
+                        window.location.href = '/home';
                     } else {
                         showError(result.error || 'Login failed');
+                        try { await auth.signOut(); } catch (e) {}
                         reEnableButton();
                     }
                 } catch (error) {
                     console.error('Login error:', error);
-                    showError(error.message);
+                    const code = error.code || '';
+                    let msg = error.message || 'Login failed';
+                    if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+                        msg = 'Invalid email or password.';
+                    } else if (code === 'auth/too-many-requests') {
+                        msg = 'Too many attempts. Try again later.';
+                    } else if (code === 'auth/invalid-email') {
+                        msg = 'Invalid email address.';
+                    }
+                    showError(msg);
                     reEnableButton();
                 }
             });

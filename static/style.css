@@ -32,6 +32,90 @@ a:hover{
     text-decoration: underline;
 }
 
+/* Terms & Conditions page */
+.terms-body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: rgba(0, 0, 0, 0.08);
+    color: rgb(59, 73, 74);
+}
+
+.terms-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 20px 48px;
+}
+
+.terms-page-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.terms-back-home,
+.terms-back-register {
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.terms-icon {
+    font-style: normal;
+    margin-right: 4px;
+}
+
+.terms-legal {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    padding: 28px 28px 32px;
+    line-height: 1.65;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+.terms-legal h1 {
+    margin: 0 0 8px;
+    font-size: 1.75rem;
+}
+
+.terms-updated {
+    margin: 0 0 24px;
+    font-size: 0.9rem;
+    opacity: 0.85;
+}
+
+.terms-legal h2 {
+    margin: 28px 0 10px;
+    font-size: 1.15rem;
+}
+
+.terms-legal p {
+    margin: 0 0 14px;
+    font-size: 0.95rem;
+}
+
+.terms-footer-actions {
+    margin-top: 32px !important;
+    padding-top: 20px;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    font-weight: 500;
+    color: #000000;
+}
+
+.terms-footer-actions a {
+    color: #000000;
+}
+
+.terms-footer-actions a:hover {
+    color: #000000;
+    text-decoration: underline;
+}
+
 .wrapper{
     width: 100%;
     display: flex;
@@ -154,9 +238,33 @@ a:hover{
     font-weight: 500;
 }
 
+/* Stacked auth: email form + optional Google below */
+.auth-oauth-below {
+    margin-top: 4px;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 18px 0 14px;
+    color: var(--second-color);
+    font-size: 13px;
+    font-weight: 500;
+    text-transform: lowercase;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(0, 0, 0, 0.12);
+}
+
 /* Google Sign In Button Styles */
 .google-signin {
-    margin: 20px 0;
+    margin: 0 0 8px;
     text-align: center;
 }
 
@@ -2955,6 +3063,8 @@ a:hover{
 .auth-badge {
     display: inline-flex;
     align-items: center;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     gap: 8px;
     padding: 8px 16px;
     border-radius: 20px;

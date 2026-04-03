@@ -33,14 +33,7 @@
           {% endif %}
       {% endwith %}
 
-      <!-- Authentication Method Toggle -->
-      <div class="auth-toggle">
-        <button type="button" id="customRegBtn" class="auth-toggle-btn active">Email & Password</button>
-        <button type="button" id="googleRegBtn" class="auth-toggle-btn">Google Sign-Up</button>
-      </div>
-      
-      <!-- Custom Registration Form -->
-      <form id="customRegisterForm" class="auth-form active">
+      <form id="customRegisterForm">
         <!-- Username -->
         <div class="input_box">
           <input type="text" id="username" class="input-field" required>
@@ -80,7 +73,7 @@
         <div class="remember-forgot">
           <div class="remember-me">
             <input type="checkbox" id="terms" required>
-            <label for="terms">I agree to the <a href="#">Terms & Conditions</a></label>
+            <label for="terms">I agree to the <a href="{{ url_for('terms') }}" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions</a></label>
           </div>
         </div>
 
@@ -88,17 +81,16 @@
         <div class="input_box">
           <button type="submit" class="input-submit">Register</button>
         </div>
-      </form>
-      
-      <!-- Google Sign Up Form -->
-      <div id="googleRegisterForm" class="auth-form">
-        <div class="google-signin">
-          <button type="button" id="googleSignUp" class="google-btn">
-            <i class="bx bxl-google"></i>
-            Sign up with Google
-          </button>
+
+        <div class="auth-oauth-below">
+          <div class="google-signin">
+            <button type="button" id="googleSignUp" class="google-btn">
+              <i class="bx bxl-google"></i>
+              Sign up with Google
+            </button>
+          </div>
         </div>
-      </div>
+      </form>
 
       <!-- Redirect to Login -->
       <div class="register">
@@ -135,38 +127,9 @@
     document.addEventListener('DOMContentLoaded', function() {
       console.log('DOM loaded, adding event listeners');
       
-      // Debug: Check if elements exist
-      const customRegBtn = document.getElementById('customRegBtn');
-      const googleRegBtn = document.getElementById('googleRegBtn');
-      const customRegisterForm = document.getElementById('customRegisterForm');
-      const googleSignUp = document.getElementById('googleSignUp');
-      
-      console.log('Elements found:', {
-        customRegBtn: !!customRegBtn,
-        googleRegBtn: !!googleRegBtn,
-        customRegisterForm: !!customRegisterForm,
-        googleSignUp: !!googleSignUp
-      });
-      
-      // Authentication method toggle
-      document.getElementById('customRegBtn').addEventListener('click', () => {
-        document.getElementById('customRegisterForm').classList.add('active');
-        document.getElementById('googleRegisterForm').classList.remove('active');
-        document.getElementById('customRegBtn').classList.add('active');
-        document.getElementById('googleRegBtn').classList.remove('active');
-      });
-      
-      document.getElementById('googleRegBtn').addEventListener('click', () => {
-        document.getElementById('customRegisterForm').classList.remove('active');
-        document.getElementById('googleRegisterForm').classList.add('active');
-        document.getElementById('customRegBtn').classList.remove('active');
-        document.getElementById('googleRegBtn').classList.add('active');
-      });
-    
-      // Custom registration form submission
+      // Registration form submission
       document.getElementById('customRegisterForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        console.log('Custom registration form submitted');
         
         // Get the submit button and disable it to prevent multiple submissions
         const submitButton = e.target.querySelector('button[type="submit"]');
@@ -210,47 +173,51 @@
           return;
         }
         
+        if (!/^[a-zA-Z0-9_]{3,80}$/.test(username)) {
+          showError('Username: 3–80 characters, letters, numbers, and underscores only.');
+          reEnableButton();
+          return;
+        }
         try {
-          console.log('Attempting custom registration');
-          console.log('Form data:', { username, email, fullname, password: '***' });
-          
-          const registrationData = { 
-            authType: 'custom',
-            username: username,
-            email: email,
-            password: password,
-            fullname: fullname
-          };
-          
-          console.log('Sending registration data:', registrationData);
-          
-          // Send registration data to backend
+          if (!auth) {
+            showError('Firebase authentication not initialized');
+            reEnableButton();
+            return;
+          }
+          const cred = await auth.createUserWithEmailAndPassword(email, password);
+          await cred.user.updateProfile({ displayName: fullname });
+          const idToken = await cred.user.getIdToken(true);
           const response = await fetch('/register', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(registrationData)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              authType: 'firebase',
+              idToken: idToken,
+              fullname: fullname,
+              username: username
+            })
           });
-          
-          console.log('Response status:', response.status);
-          console.log('Response headers:', response.headers);
-          
           const result = await response.json();
-          console.log('Response data:', result);
-          
           if (result.success) {
-            console.log('Registration successful, redirecting to home...');
-            // Keep button disabled on success since we're redirecting
-            window.location.href = '/dashboard';
+            window.location.href = '/home';
           } else {
-            console.error('Registration failed:', result.error);
+            try { await cred.user.delete(); } catch (e) {}
+            try { await auth.signOut(); } catch (e) {}
             showError(result.error || 'Registration failed');
             reEnableButton();
           }
         } catch (error) {
           console.error('Registration error:', error);
-          showError('Registration failed: ' + error.message);
+          const code = error.code || '';
+          let msg = error.message || 'Registration failed';
+          if (code === 'auth/email-already-in-use') {
+            msg = 'This email is already registered in Firebase. Try logging in.';
+          } else if (code === 'auth/weak-password') {
+            msg = 'Password is too weak. Use at least 6 characters.';
+          } else if (code === 'auth/invalid-email') {
+            msg = 'Invalid email address.';
+          }
+          showError(msg);
           reEnableButton();
         }
       });

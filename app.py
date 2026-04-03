@@ -13,9 +13,9 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-ENV_PATH = os.path.join(os.path.dirname(__file__), 'SECRET.env')
-load_dotenv(ENV_PATH, override=True)
+# Load environment variables (.env then SECRET.env so either file works; latter overrides)
+_app_root = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(_app_root, '.env'))
 
 def get_env_value(name, default=None):
     value = os.getenv(name, default)
@@ -89,6 +89,12 @@ GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 def index():
     username = current_user.username if current_user.is_authenticated else None
     return render_template("index.html", username=username)
+
+
+@app.route('/terms')
+def terms():
+    """Terms and Conditions (public)."""
+    return render_template("terms.html")
 
 @app.route('/init-db')
 def init_db():
@@ -202,15 +208,23 @@ def verify_firebase_token(id_token):
             data = response.json()
             if 'users' in data and len(data['users']) > 0:
                 user = data['users'][0]
+                provider_ids = []
+                for p in user.get('providerUserInfo') or []:
+                    pid = p.get('providerId')
+                    if pid:
+                        provider_ids.append(pid)
                 return {
                     'uid': user.get('localId'),
                     'email': user.get('email', ''),
                     'name': user.get('displayName', ''),
-                    'email_verified': user.get('emailVerified', False)
+                    'email_verified': user.get('emailVerified', False),
+                    'photoURL': user.get('photoUrl'),
+                    'provider_ids': provider_ids,
+                    'has_google_provider': 'google.com' in provider_ids,
                 }
         return None
     except Exception as e:
-        print(f"Token verification error: {e}")
+        logger.warning("Token verification error: %s", e)
         return None
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -218,32 +232,37 @@ def login():
     if request.method == 'POST':
         try:
             data = request.get_json()
+            if not data:
+                return jsonify({'error': 'No JSON data provided'}), 400
             auth_type = data.get('authType', 'firebase')  # 'firebase' or 'custom'
             
             if auth_type == 'firebase':
-                # Firebase Google authentication
                 id_token = data.get('idToken')
                 
                 if not id_token:
                     return jsonify({'error': 'No ID token provided'}), 400
                 
-                # Verify the ID token using Firebase REST API
                 user_data = verify_firebase_token(id_token)
                 
                 if not user_data:
                     return jsonify({'error': 'Invalid token'}), 401
                 
-                # Check if user exists in our database
                 user = User.query.filter_by(firebase_uid=user_data['uid']).first()
                 
                 if not user:
-                    # Create new Google user
-                    user = User.create_google_user(
-                        firebase_uid=user_data['uid'],
-                        email=user_data['email'],
-                        full_name=user_data['name'],
-                        profile_picture=user_data.get('photoURL')
-                    )
+                    if user_data.get('has_google_provider'):
+                        user = User.create_google_user(
+                            firebase_uid=user_data['uid'],
+                            email=user_data['email'],
+                            full_name=user_data['name'],
+                            profile_picture=user_data.get('photoURL'),
+                        )
+                    else:
+                        user = User.create_firebase_password_user(
+                            firebase_uid=user_data['uid'],
+                            email=user_data['email'],
+                            full_name=user_data['name'] or None,
+                        )
                 
                 # Update last login
                 user.last_login = datetime.utcnow()
@@ -254,7 +273,7 @@ def login():
                 
                 return jsonify({
                     'success': True,
-                    'message': 'Google login successful!',
+                    'message': 'Login successful!',
                     'user': user.to_dict()
                 })
                 
@@ -308,43 +327,47 @@ def register():
             logger.debug("Registration auth_type=%s", auth_type)
             
             if auth_type == 'firebase':
-                # Firebase Google registration
                 id_token = data.get('idToken')
                 fullname = data.get('fullname', '')
+                preferred_username = (data.get('username') or '').strip()
                 
                 if not id_token:
                     return jsonify({'error': 'No ID token provided'}), 400
                 
-                # Verify the ID token using Firebase REST API
                 user_data = verify_firebase_token(id_token)
                 
                 if not user_data:
                     return jsonify({'error': 'Invalid token'}), 401
                 
-                # Check if user already exists
                 existing_user = User.query.filter_by(firebase_uid=user_data['uid']).first()
                 if existing_user:
-                    return jsonify({'error': 'User already exists with this Google account'}), 400
+                    return jsonify({'error': 'An account with this sign-in method already exists.'}), 400
                 
-                # Check if email already exists with custom auth
                 existing_email = User.query.filter_by(email=user_data['email']).first()
                 if existing_email:
-                    return jsonify({'error': 'Email already registered. Please use custom login or link your Google account.'}), 400
+                    return jsonify({'error': 'Email already registered. Please log in instead.'}), 400
                 
-                # Create new Google user
-                user = User.create_google_user(
-                    firebase_uid=user_data['uid'],
-                    email=user_data['email'],
-                    full_name=user_data['name'] or fullname,
-                    profile_picture=user_data.get('photoURL')
-                )
+                display = user_data['name'] or fullname
+                if user_data.get('has_google_provider'):
+                    user = User.create_google_user(
+                        firebase_uid=user_data['uid'],
+                        email=user_data['email'],
+                        full_name=display,
+                        profile_picture=user_data.get('photoURL'),
+                    )
+                else:
+                    user = User.create_firebase_password_user(
+                        firebase_uid=user_data['uid'],
+                        email=user_data['email'],
+                        full_name=display or None,
+                        username=preferred_username or None,
+                    )
                 
-                # Login user with Flask-Login
                 login_user(user, remember=True)
                 
                 return jsonify({
                     'success': True,
-                    'message': 'Google registration successful!',
+                    'message': 'Registration successful!',
                     'user': user.to_dict()
                 })
                 
@@ -930,7 +953,7 @@ def update_profile():
             user.username = new_username
         
         # Update email (only for custom accounts)
-        if 'email' in data and user.auth_method == 'custom':
+        if 'email' in data and user.auth_method not in ('google', 'firebase'):
             new_email = data['email'].strip()
             if not new_email or '@' not in new_email:
                 return jsonify({'error': 'Invalid email address'}), 400
@@ -957,7 +980,7 @@ def update_profile():
                 return jsonify({'error': 'Invalid date format'}), 400
         
         # Update password (only for custom accounts)
-        if 'password' in data and data['password'] and user.auth_method == 'custom':
+        if 'password' in data and data['password'] and user.auth_method not in ('google', 'firebase'):
             password = data['password']
             confirm_password = data.get('confirm_password', '')
             

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='image/favicon-32.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <title>Terms & Conditions — HealthCareAI</title>
+</head>
+<body class="terms-body">
+  <div class="terms-page">
+    <header class="terms-page-header">
+      <a href="{{ url_for('index') }}" class="terms-back-home"><i class="terms-icon">←</i> HealthCareAI</a>
+      <a href="{{ url_for('register') }}" class="terms-back-register">Back to Register</a>
+    </header>
+
+    <article class="terms-legal">
+      <h1>Terms &amp; Conditions</h1>
+      <p class="terms-updated">Last updated: April 3, 2026</p>
+
+      <p>
+        Welcome to HealthCareAI. By creating an account or using this website, you agree to these Terms &amp; Conditions.
+        If you do not agree, please do not use the service.
+      </p>
+
+      <h2>1. Not medical advice</h2>
+      <p>
+        This application is for informational and educational purposes only. The chatbot, symptom tools, disease prediction
+        features, and any other content are <strong>not</strong> a substitute for professional medical advice, diagnosis,
+        or treatment. Always seek the advice of a qualified health provider with any questions about a medical condition.
+        Never disregard professional advice or delay seeking it because of something you read or see on this site.
+      </p>
+
+      <h2>2. No warranty</h2>
+      <p>
+        The service is provided &ldquo;as is&rdquo; without warranties of any kind. We do not guarantee accuracy,
+        completeness, or availability of any feature or prediction. Use of the service is at your own risk.
+      </p>
+
+      <h2>3. Your account</h2>
+      <p>
+        You are responsible for maintaining the confidentiality of your login credentials and for all activity under your
+        account. You agree to provide accurate registration information and to update it as needed.
+      </p>
+
+      <h2>4. Acceptable use</h2>
+      <p>
+        You agree not to misuse the service, attempt unauthorized access, interfere with security or performance, or use the
+        service for any unlawful purpose. We may suspend or terminate access if these terms are violated.
+      </p>
+
+      <h2>5. Privacy</h2>
+      <p>
+        Information you submit may be stored and processed as described in our practices for operating this application
+        (including authentication and profile data). Do not submit sensitive health information you are not comfortable
+        storing in accordance with how the app is configured.
+      </p>
+
+      <h2>6. Third-party services</h2>
+      <p>
+        Features may rely on third parties (for example, sign-in providers, AI APIs, or hosting). Those services have their
+        own terms and policies; your use of them is also subject to those terms where applicable.
+      </p>
+
+      <h2>7. Limitation of liability</h2>
+      <p>
+        To the fullest extent permitted by law, HealthCareAI and its operators shall not be liable for any indirect,
+        incidental, or consequential damages arising from your use of the service or reliance on any information provided
+        through it.
+      </p>
+
+      <h2>8. Changes</h2>
+      <p>
+        We may update these terms from time to time. Continued use after changes constitutes acceptance of the revised terms.
+        The &ldquo;Last updated&rdquo; date above will be revised when material changes are made.
+      </p>
+
+      <h2>9. Contact</h2>
+      <p>
+        For questions about these terms, contact the project maintainer through the channels provided for this application.
+      </p>
+
+      <p class="terms-footer-actions">
+        <a href="{{ url_for('register') }}">Return to registration</a>
+        &nbsp;·&nbsp;
+        <a href="{{ url_for('login') }}">Login</a>
+      </p>
+    </article>
+  </div>
+</body>
+</html>

@@ -106,8 +106,8 @@
                     <p class="profile-email">{{ user.email }}</p>
                     <div class="profile-badges">
                         <span class="auth-badge {{ user.auth_method }}">
-                            <i class="fas fa-{{ 'google' if user.auth_method == 'google' else 'user' }}"></i>
-                            {{ user.auth_method.title() }} Account
+                            <i class="fas fa-{{ 'google' if user.auth_method == 'google' else ('envelope' if user.auth_method == 'firebase' else 'user') }}"></i>
+                            {% if user.auth_method == 'firebase' %}Firebase{% else %}{{ user.auth_method.title() }}{% endif %} Account
                         </span>
                         <span class="member-since">
                             <i class="fas fa-calendar"></i>
@@ -170,9 +170,9 @@
                             <div class="form-group">
                                 <label for="editEmail"><i class="fas fa-envelope"></i> Email</label>
                                 <input type="email" id="editEmail" name="email" value="{{ user.email }}" 
-                                       {{ 'readonly' if user.auth_method == 'google' else '' }}>
-                                {% if user.auth_method == 'google' %}
-                                    <small class="form-help">Email cannot be changed for Google accounts</small>
+                                       {{ 'readonly' if user.auth_method in ['google', 'firebase'] else '' }}>
+                                {% if user.auth_method in ['google', 'firebase'] %}
+                                    <small class="form-help">Email is managed by your sign-in provider (Firebase)</small>
                                 {% endif %}
                             </div>
                             <div class="form-group">
@@ -188,7 +188,7 @@
                                 <input type="date" id="editDateOfBirth" name="date_of_birth" 
                                        value="{{ user.date_of_birth.strftime('%Y-%m-%d') if user.date_of_birth else '' }}">
                             </div>
-                            {% if user.auth_method == 'custom' %}
+                            {% if user.auth_method not in ['google', 'firebase'] %}
                             <div class="form-group">
                                 <label for="editPassword"><i class="fas fa-lock"></i> New Password (optional)</label>
                                 <input type="password" id="editPassword" name="password" placeholder="Leave blank to keep current password">
