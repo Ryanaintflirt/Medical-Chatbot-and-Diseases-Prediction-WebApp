@@ -3,13 +3,15 @@ from flask_cors import CORS
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import requests
 import os
+import logging
 from dotenv import load_dotenv
 import json
 from datetime import datetime
 from models import db, User, MedicalInfofuser, Doctor, Appointment
 from loadModels import load_models
-import pickle
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 ENV_PATH = os.path.join(os.path.dirname(__file__), 'SECRET.env')
@@ -293,9 +295,11 @@ def register():
     if request.method == 'POST':
         try:
             data = request.get_json()
-            print(f"🔍 Registration request received: {data}")
+            if not data:
+                return jsonify({'error': 'No JSON data provided'}), 400
+            logger.debug("Registration POST received (keys=%s)", list(data.keys()))
             auth_type = data.get('authType', 'firebase')  # 'firebase' or 'custom'
-            print(f"🔍 Auth type: {auth_type}")
+            logger.debug("Registration auth_type=%s", auth_type)
             
             if auth_type == 'firebase':
                 # Firebase Google registration
@@ -345,25 +349,25 @@ def register():
                 password = data.get('password')
                 fullname = data.get('fullname', '')
                 
-                print(f"🔍 Custom registration data: username={username}, email={email}, fullname={fullname}")
+                logger.debug("Custom registration attempt username=%s email=%s", username, email)
                 
                 if not all([username, email, password]):
-                    print(f"❌ Missing required fields: username={bool(username)}, email={bool(email)}, password={bool(password)}")
+                    logger.debug("Registration rejected: missing username/email/password flags")
                     return jsonify({'error': 'Username, email, and password are required'}), 400
                 
                 # Check if username already exists
                 existing_username = User.query.filter_by(username=username).first()
                 if existing_username:
-                    print(f"❌ Username already exists: {username}")
+                    logger.debug("Registration rejected: username taken username=%s", username)
                     return jsonify({'error': 'Username already exists'}), 400
                 
                 # Check if email already exists
                 existing_email = User.query.filter_by(email=email).first()
                 if existing_email:
-                    print(f"❌ Email already registered: {email}")
+                    logger.debug("Registration rejected: email already registered")
                     return jsonify({'error': 'Email already registered'}), 400
                 
-                print(f"✅ Creating new user: {username}")
+                logger.debug("Creating custom user username=%s", username)
                 
                 # Create new custom user
                 user = User.create_custom_user(
@@ -373,12 +377,10 @@ def register():
                     full_name=fullname
                 )
                 
-                print(f"✅ User created successfully: {user.username} (ID: {user.id})")
+                logger.info("User registered: id=%s username=%s", user.id, user.username)
                 
                 # Login user with Flask-Login
                 login_user(user, remember=True)
-                
-                print(f"✅ User logged in successfully")
                 
                 return jsonify({
                     'success': True,
@@ -390,9 +392,7 @@ def register():
                 return jsonify({'error': 'Invalid authentication type'}), 400
                 
         except Exception as e:
-            print(f"❌ Registration exception: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            logger.exception("Registration failed: %s", e)
             return jsonify({'error': f'Registration failed: {str(e)}'}), 500
     
     return render_template("register.html", firebase_config=FIREBASE_CONFIG)
@@ -717,8 +717,8 @@ def predict_heart_disease():
             if hasattr(ML_MODELS['heart'], 'predict_proba'):
                 probabilities = ML_MODELS['heart'].predict_proba(input_data)[0]
                 confidence = round(max(probabilities) * 100, 2)
-        except:
-            pass
+        except Exception as e:
+            logger.debug("Heart model predict_proba skipped: %s", e, exc_info=True)
         
         # Prepare response
         result = {
@@ -727,7 +727,7 @@ def predict_heart_disease():
             'message': 'Heart disease risk detected' if prediction == 1 else 'Low heart disease risk'
         }
         
-        print(f"Heart disease prediction for user {current_user.username}: {result}")
+        logger.debug("Heart prediction user_id=%s prediction=%s confidence=%s", current_user.id, result['prediction'], confidence)
         
         return jsonify(result)
         
@@ -783,8 +783,8 @@ def predict_diabetes_disease():
             if hasattr(ML_MODELS['diabetes'], 'predict_proba'):
                 probabilities = ML_MODELS['diabetes'].predict_proba(input_data)[0]
                 confidence = round(max(probabilities) * 100, 2)
-        except:
-            pass
+        except Exception as e:
+            logger.debug("Diabetes model predict_proba skipped: %s", e, exc_info=True)
         
         # Prepare response
         result = {
@@ -793,7 +793,7 @@ def predict_diabetes_disease():
             'message': 'Diabetes risk detected' if prediction == 1 else 'Low diabetes risk'
         }
         
-        print(f"Diabetes prediction for user {current_user.username}: {result}")
+        logger.debug("Diabetes prediction user_id=%s prediction=%s confidence=%s", current_user.id, result['prediction'], confidence)
         
         return jsonify(result)
         
@@ -865,8 +865,8 @@ def predict_parkinsons_disease():
             if hasattr(ML_MODELS['parkinsons'], 'predict_proba'):
                 probabilities = ML_MODELS['parkinsons'].predict_proba(input_data)[0]
                 confidence = round(max(probabilities) * 100, 2)
-        except:
-            pass
+        except Exception as e:
+            logger.debug("Parkinsons model predict_proba skipped: %s", e, exc_info=True)
         
         # Prepare response
         result = {
@@ -875,7 +875,7 @@ def predict_parkinsons_disease():
             'message': 'Parkinson\'s disease risk detected' if prediction == 1 else 'Low Parkinson\'s disease risk'
         }
         
-        print(f"Parkinson's disease prediction for user {current_user.username}: {result}")
+        logger.debug("Parkinsons prediction user_id=%s prediction=%s confidence=%s", current_user.id, result['prediction'], confidence)
         
         return jsonify(result)
         
@@ -891,10 +891,11 @@ def view_profile():
     """Route to display user profile page"""
     # Load user's medical info if available
     medical = MedicalInfofuser.query.filter_by(user_id=current_user.id).first()
-    print(f"🔍 Medical data for user {current_user.id} (ID: {current_user.id}): {medical}")
-    print(f"🔍 All medical records: {MedicalInfofuser.query.all()}")
-    if medical:
-        print(f"🔍 Medical fields: full_name={medical.full_name}, gender={medical.gender}, symptoms={medical.symptoms}")
+    logger.debug(
+        "view_profile: user_id=%s medical_record_id=%s",
+        current_user.id,
+        medical.id if medical else None,
+    )
     return render_template("viewProfile.html", user=current_user, medical=medical, username=current_user.username)
 
 @app.route('/update-profile', methods=['POST'])
@@ -1002,15 +1003,14 @@ def update_medical_info():
         
         # Update medical info in database
         medical = MedicalInfofuser.query.filter_by(user_id=user.id).first()
-        print(f"🔍 Looking for medical record for user_id: {user.id}")
     
         if not medical:
-            print(f"🔍 Creating new medical record for user_id: {user.id}")
+            logger.debug("Creating medical record for user_id=%s", user.id)
             medical = MedicalInfofuser(user_id=user.id)
             db.session.add(medical)
             db.session.flush()  # Flush to get the ID
         else:
-            print(f"🔍 Found existing medical record: {medical.id}")
+            logger.debug("Updating medical record id=%s user_id=%s", medical.id, user.id)
             # Don't add existing record to session - it's already tracked
         # Update fields
         if 'full_name' in data:
