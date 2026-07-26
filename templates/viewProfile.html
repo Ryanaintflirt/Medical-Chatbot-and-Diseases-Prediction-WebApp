@@ -44,7 +44,7 @@
                 {% if username %}
                 <li class="nav-item dropdown">
                     <a href="#profile" class="nav-link profile-link">
-                        <i class="fas fa-user-circle"></i> {{ username }}
+                        {% if current_user.profile_picture %}<img src="{{ current_user.profile_picture }}" alt="Profile" class="nav-avatar">{% else %}<i class="fas fa-user-circle nav-avatar-icon"></i>{% endif %}
                         <i class="fas fa-chevron-down dropdown-arrow"></i>
                     </a>
                     <div class="dropdown-content">
@@ -92,14 +92,18 @@
     <div class="profile-container">
         <div class="profile-header">
             <div class="profile-header-content">
-                <div class="profile-avatar">
+                <div class="profile-avatar" id="profileAvatar">
                     {% if user.profile_picture %}
-                        <img src="{{ user.profile_picture }}" alt="Profile Picture" class="avatar-image">
+                        <img src="{{ user.profile_picture }}" alt="Profile Picture" class="avatar-image" id="profileAvatarImg">
                     {% else %}
-                        <div class="avatar-placeholder">
+                        <div class="avatar-placeholder" id="profileAvatarPlaceholder">
                             <i class="fas fa-user"></i>
                         </div>
                     {% endif %}
+                    <label for="profilePictureInput" class="avatar-upload-btn" title="Change photo">
+                        <i class="fas fa-camera"></i>
+                    </label>
+                    <input type="file" id="profilePictureInput" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
                 </div>
                 <div class="profile-info">
                     <h1 class="profile-name">{{ user.full_name or user.username }}</h1>

@@ -149,3 +149,5 @@ Thumbs.db
 
 # Saved models (uncomment if you want to ignore generated models)
 # saved_models/
+# User-uploaded profile pictures
+static/uploads/profile_pictures/

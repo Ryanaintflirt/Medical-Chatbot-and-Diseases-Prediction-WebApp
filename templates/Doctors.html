@@ -43,7 +43,7 @@
                 {% if username %}
                 <li class="nav-item dropdown">
                     <a href="#profile" class="nav-link profile-link">
-                        <i class="fas fa-user-circle"></i> {{ username }}
+                        {% if current_user.profile_picture %}<img src="{{ current_user.profile_picture }}" alt="Profile" class="nav-avatar">{% else %}<i class="fas fa-user-circle nav-avatar-icon"></i>{% endif %}
                         <i class="fas fa-chevron-down dropdown-arrow"></i>
                     </a>
                     <div class="dropdown-content">
@@ -155,9 +155,11 @@
                         </div>
                         <h2>No Doctors Available</h2>
                         <p>No doctors are currently available. Please check back later or contact our support team.</p>
+                        {% if current_user.is_authenticated and current_user.role == 'admin' %}
                         <div class="admin-note">
-                            <p><strong>Admin Note:</strong> Visit <code>/populate-doctors</code> to add doctors to the database.</p>
+                            <p><strong>Admin Note:</strong> Add doctors from the <a href="/admin/doctor/">admin dashboard</a>.</p>
                         </div>
+                        {% endif %}
                     </div>
                 {% endif %}
             </div>

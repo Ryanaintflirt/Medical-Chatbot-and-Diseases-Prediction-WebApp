@@ -19,6 +19,9 @@ class User(UserMixin, db.Model):
     # Authentication method tracking
     auth_method = db.Column(db.String(20), nullable=False, default='custom')  # 'custom', 'google', or 'firebase'
     firebase_uid = db.Column(db.String(128), unique=True, nullable=True)  # Firebase UID (Google or email/password)
+
+    # Authorization role: 'user' (default) or 'admin' (access to the admin dashboard)
+    role = db.Column(db.String(20), nullable=False, default='user')
     
     # Account linking
     linked_accounts = db.Column(db.JSON, nullable=True)  # Store linked account info
@@ -32,10 +35,23 @@ class User(UserMixin, db.Model):
     profile_picture = db.Column(db.String(255), nullable=True)
     phone_number = db.Column(db.String(20), nullable=True)
     date_of_birth = db.Column(db.Date, nullable=True)
-    
+
+    # Chat conversations owned by this user; removed when the account is deleted.
+    conversations = db.relationship(
+        'Conversation',
+        backref='user',
+        lazy=True,
+        cascade='all, delete-orphan',
+    )
+
     def __repr__(self):
         return f'<User {self.username}>'
-    
+
+    @property
+    def is_admin(self):
+        """True if this user has the admin role."""
+        return self.role == 'admin'
+
     def set_password(self, password):
         """Hash and set password for custom authentication"""
         self.password_hash = generate_password_hash(password)
@@ -54,6 +70,7 @@ class User(UserMixin, db.Model):
             'email': self.email,
             'full_name': self.full_name,
             'auth_method': self.auth_method,
+            'role': self.role,
             'firebase_uid': self.firebase_uid,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'last_login': self.last_login.isoformat() if self.last_login else None,
@@ -188,10 +205,108 @@ class MedicalInfofuser(db.Model):
         }
 
 
+class Conversation(db.Model):
+    """A chat conversation belonging to a user (sidebar entry)."""
+    __tablename__ = 'conversation'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    title = db.Column(db.String(120), nullable=False, default='New Chat')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Messages are deleted with the conversation; conversations deleted with the user.
+    messages = db.relationship(
+        'Message',
+        backref='conversation',
+        lazy=True,
+        cascade='all, delete-orphan',
+        order_by='Message.created_at',
+    )
+
+    def __repr__(self):
+        return f'<Conversation {self.id} - {self.title}>'
+
+    def to_dict(self, include_messages=False):
+        data = {
+            'id': self.id,
+            'title': self.title,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        if include_messages:
+            data['messages'] = [m.to_dict() for m in self.messages]
+        return data
+
+
+class Message(db.Model):
+    """A single message within a conversation."""
+    __tablename__ = 'message'
+
+    id = db.Column(db.Integer, primary_key=True)
+    conversation_id = db.Column(
+        db.Integer, db.ForeignKey('conversation.id'), nullable=False, index=True
+    )
+    role = db.Column(db.String(10), nullable=False)  # 'user' or 'ai'
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<Message {self.id} - {self.role}>'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'role': self.role,
+            'content': self.content,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class Hospital(db.Model):
+    """Hospital / clinic that doctors are affiliated with."""
+    __tablename__ = 'hospital'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    address = db.Column(db.String(255), nullable=True)
+    city = db.Column(db.String(100), nullable=True)
+    phone_number = db.Column(db.String(20), nullable=True)
+    email = db.Column(db.String(100), nullable=True)
+    website = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Doctors affiliated with this hospital. Deleting a hospital is blocked at the
+    # route layer when it still has doctors (see admin delete guard).
+    # Declared with back_populates (not backref) so the matching Doctor.hospital
+    # attribute exists at class-definition time — Flask-Admin references it while
+    # building views before the mappers are configured.
+    doctors = db.relationship('Doctor', back_populates='hospital', lazy=True)
+
+    def __repr__(self):
+        return f'<Hospital {self.name}>'
+
+    def __str__(self):
+        # Used as the label in Flask-Admin relationship dropdowns.
+        return self.name
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'address': self.address,
+            'city': self.city,
+            'phone_number': self.phone_number,
+            'email': self.email,
+            'website': self.website,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class Doctor(db.Model):
     """Doctor model for healthcare appointments"""
     __tablename__ = 'doctor'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String(100), nullable=False)
     gender = db.Column(db.String(10), nullable=True)
@@ -205,13 +320,15 @@ class Doctor(db.Model):
     qualification = db.Column(db.String(150), nullable=True)
     profile_photo = db.Column(db.String(255), nullable=True)
     bio = db.Column(db.Text, nullable=True)
-    
+    hospital_id = db.Column(db.Integer, db.ForeignKey('hospital.id'), nullable=True)
+    hospital = db.relationship('Hospital', back_populates='doctors')
+
     # Relationship with appointments
     appointments = db.relationship('Appointment', backref='doctor', lazy=True)
-    
+
     def __repr__(self):
         return f'<Doctor {self.full_name} - {self.specialty}>'
-    
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -226,7 +343,8 @@ class Doctor(db.Model):
             'years_experience': self.years_experience,
             'qualification': self.qualification,
             'profile_photo': self.profile_photo,
-            'bio': self.bio
+            'bio': self.bio,
+            'hospital_id': self.hospital_id,
         }
 
 

@@ -45,7 +45,7 @@
                 {% if username %}
                 <li class="nav-item dropdown">
                     <a href="#profile" class="nav-link profile-link">
-                        <i class="fas fa-user-circle"></i> {{ username }}
+                        {% if current_user.profile_picture %}<img src="{{ current_user.profile_picture }}" alt="Profile" class="nav-avatar">{% else %}<i class="fas fa-user-circle nav-avatar-icon"></i>{% endif %}
                         <i class="fas fa-chevron-down dropdown-arrow"></i>
                     </a>
                     <div class="dropdown-content">

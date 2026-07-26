@@ -1,0 +1,85 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="container-fluid" style="margin-top: 20px;">
+  <h2 class="mb-4"><i class="fa fa-tachometer"></i> Dashboard</h2>
+
+  <!-- KPI cards -->
+  <div class="row">
+    {% set cards = [
+      ('Users', stats.users, 'fa-users', '#007bff', 'user'),
+      ('Doctors', stats.doctors, 'fa-user-md', '#28a745', 'doctor'),
+      ('Hospitals', stats.hospitals, 'fa-hospital-o', '#17a2b8', 'hospital'),
+      ('Appointments', stats.appointments, 'fa-calendar-check-o', '#fd7e14', 'appointment')
+    ] %}
+    {% for label, value, icon, color, endpoint in cards %}
+    <div class="col-md-3 col-sm-6 mb-4">
+      <a href="{{ url_for(endpoint ~ '.index_view') }}" style="text-decoration: none;">
+        <div class="card shadow-sm h-100" style="border-left: 5px solid {{ color }};">
+          <div class="card-body d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">{{ label }}</div>
+              <div style="font-size: 2rem; font-weight: 700; color: {{ color }};">{{ value }}</div>
+            </div>
+            <i class="fa {{ icon }}" style="font-size: 2.5rem; color: {{ color }}; opacity: 0.35;"></i>
+          </div>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="row">
+    <!-- Recent signups -->
+    <div class="col-md-6 mb-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-header"><strong><i class="fa fa-user-plus"></i> Recent Signups</strong></div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-hover mb-0">
+            <thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Joined</th></tr></thead>
+            <tbody>
+              {% for u in recent_users %}
+              <tr>
+                <td>{{ u.username }}</td>
+                <td>{{ u.email }}</td>
+                <td>
+                  {% if u.role == 'admin' %}<span class="badge badge-danger">admin</span>
+                  {% else %}<span class="badge badge-secondary">user</span>{% endif %}
+                </td>
+                <td>{{ u.created_at.strftime('%Y-%m-%d') if u.created_at else '—' }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4" class="text-center text-muted">No users yet</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upcoming appointments -->
+    <div class="col-md-6 mb-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-header"><strong><i class="fa fa-calendar"></i> Upcoming Appointments</strong></div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-hover mb-0">
+            <thead><tr><th>Doctor</th><th>Date</th><th>Time</th><th>Status</th></tr></thead>
+            <tbody>
+              {% for a in upcoming %}
+              <tr>
+                <td>{{ a.doctor.full_name if a.doctor else 'Unknown' }}</td>
+                <td>{{ a.appointment_date.strftime('%Y-%m-%d') if a.appointment_date else '—' }}</td>
+                <td>{{ a.appointment_time.strftime('%H:%M') if a.appointment_time else '—' }}</td>
+                <td><span class="badge badge-info">{{ a.status or 'Scheduled' }}</span></td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4" class="text-center text-muted">No upcoming appointments</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

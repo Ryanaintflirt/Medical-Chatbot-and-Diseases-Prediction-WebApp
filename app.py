@@ -1,13 +1,18 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, abort
 from flask_cors import CORS
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_admin import Admin, AdminIndexView, expose
+from flask_admin.contrib.sqla import ModelView
+from flask_migrate import Migrate
+import click
 import requests
 import os
+import uuid
 import logging
 from dotenv import load_dotenv
 import json
 from datetime import datetime
-from models import db, User, MedicalInfofuser, Doctor, Appointment
+from models import db, User, MedicalInfofuser, Doctor, Appointment, Conversation, Message, Hospital
 from loadModels import load_models
 import numpy as np
 
@@ -34,8 +39,23 @@ app = Flask(__name__)
 
 # Load models at startup
 ML_MODELS = load_models()
-# TODO: Move secret key to environment variables for production
-app.secret_key = 'temporary-secret-key-for-development-12345'
+
+# Environment / debug detection (used for secret key + app.run below)
+_flask_env = (get_env_value('FLASK_ENV', '') or '').lower()
+_flask_debug = (get_env_value('FLASK_DEBUG', '') or '').lower()
+IS_PRODUCTION = _flask_env == 'production'
+DEBUG_MODE = _flask_debug in ('1', 'true', 'yes') or (not IS_PRODUCTION and _flask_debug != 'false')
+
+# Secret key: required in production, dev-only fallback otherwise.
+app.secret_key = get_env_value('SECRET_KEY')
+if not app.secret_key:
+    if IS_PRODUCTION:
+        raise RuntimeError(
+            'SECRET_KEY environment variable must be set in production. '
+            'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+        )
+    logger.warning('SECRET_KEY not set; using an insecure development key. Do NOT use in production.')
+    app.secret_key = 'dev-only-insecure-secret-key-change-me'
 
 # Database configuration (use instance/ so path does not depend on cwd)
 os.makedirs(app.instance_path, exist_ok=True)
@@ -44,11 +64,51 @@ app.config['SQLALCHEMY_DATABASE_URI'] = (
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Profile picture uploads
+PROFILE_PIC_DIR = os.path.join(_app_root, 'static', 'uploads', 'profile_pictures')
+os.makedirs(PROFILE_PIC_DIR, exist_ok=True)
+app.config['PROFILE_PIC_FOLDER'] = PROFILE_PIC_DIR
+ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+MAX_PROFILE_PIC_BYTES = 5 * 1024 * 1024  # 5 MB
+
 # Initialize extensions
 db.init_app(app)
-# Create tables if missing (avoids "no such table" when /init-db was never run)
+migrate = Migrate(app, db)  # `flask db migrate/upgrade` for future schema changes
+
+
+def _ensure_sqlite_columns():
+    """Add columns introduced after the initial release to an existing SQLite DB.
+
+    db.create_all() creates missing *tables* but never alters existing ones, so a
+    database created before these columns existed would be missing them. This runs
+    an idempotent, non-destructive `ALTER TABLE ADD COLUMN` for each and is a no-op
+    once the column is present. Only applies to SQLite (the configured backend).
+    """
+    from sqlalchemy import text
+
+    if not app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite'):
+        return
+
+    # (table, column, column definition) — definitions must include a DEFAULT if NOT NULL.
+    pending = [
+        ('users', 'role', "VARCHAR(20) NOT NULL DEFAULT 'user'"),
+        ('doctor', 'hospital_id', 'INTEGER'),
+    ]
+    for table, column, coldef in pending:
+        existing = [row[1] for row in db.session.execute(text(f'PRAGMA table_info({table})'))]
+        if not existing:
+            continue  # table doesn't exist yet; create_all handles fresh installs
+        if column not in existing:
+            db.session.execute(text(f'ALTER TABLE {table} ADD COLUMN {column} {coldef}'))
+            logger.info('Auto-added missing column %s.%s', table, column)
+    db.session.commit()
+
+
+# Create tables if missing (avoids "no such table" when /init-db was never run),
+# then backfill any columns added in later releases.
 with app.app_context():
     db.create_all()
+    _ensure_sqlite_columns()
 CORS(app)
 
 # Flask-Login setup
@@ -67,6 +127,124 @@ def unauthorized():
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+# ---------------------------------------------------------------------------
+# Admin dashboard (Flask-Admin) — back-office CRUD for staff only
+# ---------------------------------------------------------------------------
+def _current_user_is_admin():
+    return current_user.is_authenticated and getattr(current_user, 'role', 'user') == 'admin'
+
+
+class SecureModelView(ModelView):
+    """Base admin view: only reachable by logged-in admins."""
+    def is_accessible(self):
+        return _current_user_is_admin()
+
+    def inaccessible_callback(self, name, **kwargs):
+        # Non-admins are sent to login (or bounced if already logged in as a user).
+        if current_user.is_authenticated:
+            abort(403)
+        return redirect(url_for('login', next=request.path))
+
+
+class SecureAdminIndexView(AdminIndexView):
+    """Admin landing page: a stats overview. Same access rule as the model views."""
+    def is_accessible(self):
+        return _current_user_is_admin()
+
+    def inaccessible_callback(self, name, **kwargs):
+        if current_user.is_authenticated:
+            abort(403)
+        return redirect(url_for('login', next=request.path))
+
+    @expose('/')
+    def index(self):
+        # Access is enforced by Flask-Admin via is_accessible/inaccessible_callback.
+        from datetime import date
+        stats = {
+            'users': User.query.count(),
+            'doctors': Doctor.query.count(),
+            'hospitals': Hospital.query.count(),
+            'appointments': Appointment.query.count(),
+        }
+        recent_users = User.query.order_by(User.created_at.desc()).limit(5).all()
+        upcoming = (
+            Appointment.query
+            .filter(Appointment.appointment_date >= date.today())
+            .order_by(Appointment.appointment_date, Appointment.appointment_time)
+            .limit(5)
+            .all()
+        )
+        return self.render(
+            'admin/dashboard.html',
+            stats=stats,
+            recent_users=recent_users,
+            upcoming=upcoming,
+        )
+
+
+class UserAdmin(SecureModelView):
+    # Never expose the password hash in the list or edit form.
+    column_exclude_list = ['password_hash']
+    form_excluded_columns = ['password_hash', 'conversations', 'linked_accounts']
+    column_searchable_list = ['username', 'email', 'full_name']
+    column_filters = ['role', 'auth_method', 'is_active']
+    column_editable_list = ['role', 'is_active']
+
+
+class DoctorAdmin(SecureModelView):
+    # Show the affiliated hospital in the list table (relationships aren't listed
+    # by default) so assignments are visible at a glance.
+    column_list = ['full_name', 'specialty', 'gender', 'email', 'hospital', 'years_experience']
+    column_labels = {'hospital': 'Hospital', 'years_experience': 'Experience (yrs)'}
+    column_searchable_list = ['full_name', 'specialty', 'email']
+    column_filters = ['specialty', 'gender', 'hospital']
+    # The 'hospital' relationship field renders as a dropdown in the create/edit
+    # form (populate the Hospitals table first so it has options to choose from).
+    form_excluded_columns = ['appointments']
+
+
+class HospitalAdmin(SecureModelView):
+    column_searchable_list = ['name', 'city']
+    form_excluded_columns = ['doctors']
+
+    def on_model_delete(self, model):
+        # Don't orphan doctors: block deleting a hospital that still has affiliations.
+        if model.doctors:
+            raise ValueError(
+                f'Cannot delete "{model.name}": {len(model.doctors)} doctor(s) are still '
+                'assigned. Reassign or remove them first.'
+            )
+
+
+class AppointmentAdmin(SecureModelView):
+    column_filters = ['status', 'appointment_date']
+
+
+admin = Admin(
+    app,
+    name='HealthCare Admin',
+    index_view=SecureAdminIndexView(name='Dashboard', url='/admin'),
+    template_mode='bootstrap4',
+)
+admin.add_view(UserAdmin(User, db.session, name='Users'))
+admin.add_view(DoctorAdmin(Doctor, db.session, name='Doctors'))
+admin.add_view(HospitalAdmin(Hospital, db.session, name='Hospitals'))
+admin.add_view(AppointmentAdmin(Appointment, db.session, name='Appointments'))
+
+
+@app.cli.command('make-admin')
+@click.argument('email')
+def make_admin(email):
+    """Promote the user with EMAIL to the admin role: `flask make-admin you@example.com`."""
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        click.echo(f'No user found with email: {email}')
+        return
+    user.role = 'admin'
+    db.session.commit()
+    click.echo(f'{email} is now an admin.')
+
+
 # Firebase Configuration
 FIREBASE_CONFIG = {
     "apiKey": get_env_value('FIREBASE_API_KEY'),
@@ -83,12 +261,15 @@ FIREBASE_CONFIG = {
 GEMINI_API_KEY = get_env_value('GEMINI_API_KEY') or get_env_value('AiApi_Key')
 GEMINI_MODEL = get_env_value('GEMINI_MODEL', 'gemini-3-flash-preview')
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+# Send the API key as a header instead of a URL query param (avoids leaking it in logs/proxies)
+GEMINI_HEADERS = {'x-goog-api-key': GEMINI_API_KEY or '', 'Content-Type': 'application/json'}
 
 
 @app.route('/')
 def index():
     username = current_user.username if current_user.is_authenticated else None
-    return render_template("index.html", username=username)
+    full_name = current_user.full_name if current_user.is_authenticated else None
+    return render_template("index.html", username=username, full_name=full_name)
 
 
 @app.route('/terms')
@@ -96,104 +277,32 @@ def terms():
     """Terms and Conditions (public)."""
     return render_template("terms.html")
 
+def _require_admin_token():
+    """Guard for maintenance routes. Returns an error response tuple if unauthorized, else None.
+
+    Set ADMIN_TOKEN in the environment and pass it as ?token=... or an
+    'X-Admin-Token' header. If ADMIN_TOKEN is unset, the routes are disabled.
+    """
+    admin_token = get_env_value('ADMIN_TOKEN')
+    if not admin_token:
+        return jsonify({'error': 'This endpoint is disabled. Set ADMIN_TOKEN to enable it.'}), 403
+    provided = request.headers.get('X-Admin-Token') or request.args.get('token')
+    if not provided or provided != admin_token:
+        return jsonify({'error': 'Unauthorized'}), 401
+    return None
+
 @app.route('/init-db')
 def init_db():
     """Initialize the database with tables"""
+    denied = _require_admin_token()
+    if denied:
+        return denied
     try:
         with app.app_context():
             db.create_all()
         return jsonify({'message': 'Database initialized successfully!'})
     except Exception as e:
         return jsonify({'error': f'Database initialization failed: {str(e)}'}), 500
-
-@app.route('/populate-doctors')
-def populate_doctors():
-    """Populate the database with doctor data"""
-    try:
-        with app.app_context():
-            # Check if doctors already exist
-            if Doctor.query.first():
-                return jsonify({'message': 'Doctors already exist in database!'})
-            
-            # Create doctor records
-            doctors_data = [
-                {
-                    'full_name': 'Dr. Sophia Tan',
-                    'gender': 'Female',
-                    'date_of_birth': datetime.strptime('1982-05-10', '%Y-%m-%d').date(),
-                    'specialty': 'Cardiologist',
-                    'phone_number': '09123456789',
-                    'email': 'sophia.tan@hospital.com',
-                    'available_days': 'Monday, Wednesday, Friday',
-                    'available_time': '09:00 - 12:00',
-                    'years_experience': 15,
-                    'qualification': 'MD, FACC',
-                    'profile_photo': 'https://i.pinimg.com/736x/1b/52/fd/1b52fd81c2282b432b85dc6a8a01f13d.jpg',
-                    'bio': 'Experienced cardiologist with expertise in heart disease prevention and treatment.'
-                },
-                {
-                    'full_name': 'Dr. Michael Lee',
-                    'gender': 'Male',
-                    'date_of_birth': datetime.strptime('1978-08-24', '%Y-%m-%d').date(),
-                    'specialty': 'Pediatrician',
-                    'phone_number': '09987654321',
-                    'email': 'michael.lee@hospital.com',
-                    'available_days': 'Tuesday, Thursday, Saturday',
-                    'available_time': '13:00 - 17:00',
-                    'years_experience': 20,
-                    'qualification': 'MD, FAAP',
-                    'profile_photo': 'https://i.pinimg.com/736x/24/09/4f/24094f8bd75f092e7074c8b5e9d17265.jpg',
-                    'bio': 'Dedicated pediatrician providing compassionate care for children of all ages.'
-                },
-                {
-                    'full_name': 'Dr. Aye Chan',
-                    'gender': 'Female',
-                    'date_of_birth': datetime.strptime('1985-02-18', '%Y-%m-%d').date(),
-                    'specialty': 'Dermatologist',
-                    'phone_number': '09555444333',
-                    'email': 'aye.chan@hospital.com',
-                    'available_days': 'Monday, Thursday',
-                    'available_time': '10:00 - 15:00',
-                    'years_experience': 12,
-                    'qualification': 'MBBS, Diploma in Dermatology',
-                    'profile_photo': 'https://i.pinimg.com/736x/47/a4/44/47a4448f2df0046ee1f7bed28f87e551.jpg',
-                    'bio': 'Specialist in treating skin conditions and cosmetic dermatology procedures.'
-                },
-                {
-                    'full_name': 'Dr. John Smith',
-                    'gender': 'Male',
-                    'date_of_birth': datetime.strptime('1975-11-03', '%Y-%m-%d').date(),
-                    'specialty': 'Orthopedic Surgeon',
-                    'phone_number': '09771234567',
-                    'email': 'john.smith@hospital.com',
-                    'available_days': 'Wednesday, Friday',
-                    'available_time': '08:00 - 12:00',
-                    'years_experience': 22,
-                    'qualification': 'MD, MS (Ortho)',
-                    'profile_photo': 'https://i.pinimg.com/736x/e6/13/d9/e613d9a7aec9c000f2ed32756148e5e6.jpg',
-                    'bio': 'Orthopedic surgeon focused on joint replacement and sports injury treatments.'
-                }
-            ]
-            
-            for doctor_data in doctors_data:
-                doctor = Doctor(**doctor_data)
-                db.session.add(doctor)
-            
-            db.session.commit()
-            return jsonify({'message': f'Successfully added {len(doctors_data)} doctors to database!'})
-            
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': f'Failed to populate doctors: {str(e)}'}), 500
-
-@app.route('/debug')
-def debug():
-    """Debug route to check Firebase configuration"""
-    return jsonify({
-        'firebase_config': FIREBASE_CONFIG,
-        'session': dict(session),
-        'status': 'OK'
-    })
 
 def verify_firebase_token(id_token):
     """Verify Firebase ID token using REST API"""
@@ -248,9 +357,22 @@ def login():
                     return jsonify({'error': 'Invalid token'}), 401
                 
                 user = User.query.filter_by(firebase_uid=user_data['uid']).first()
-                
+
                 if not user:
-                    if user_data.get('has_google_provider'):
+                    # No account for this Firebase UID yet. Before creating a new
+                    # one, check whether the (Firebase-verified) email is already
+                    # registered — if so, link this sign-in identity to that
+                    # account instead of inserting a duplicate email (which would
+                    # violate the UNIQUE constraint on users.email).
+                    existing_email = User.query.filter_by(email=user_data['email']).first()
+                    if existing_email:
+                        existing_email.firebase_uid = user_data['uid']
+                        if user_data.get('has_google_provider'):
+                            existing_email.auth_method = 'google'
+                            if not existing_email.profile_picture:
+                                existing_email.profile_picture = user_data.get('photoURL')
+                        user = existing_email
+                    elif user_data.get('has_google_provider'):
                         user = User.create_google_user(
                             firebase_uid=user_data['uid'],
                             email=user_data['email'],
@@ -458,9 +580,9 @@ def test_ai():
             ]
         }
 
-        api_url = f"{GEMINI_API_BASE}/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+        api_url = f"{GEMINI_API_BASE}/{GEMINI_MODEL}:generateContent"
         print("Testing Gemini API connection...")
-        response = requests.post(api_url, json=payload, timeout=10)
+        response = requests.post(api_url, json=payload, headers=GEMINI_HEADERS, timeout=10)
         
         return jsonify({
             'status': response.status_code,
@@ -474,22 +596,98 @@ def test_ai():
             'type': type(e).__name__
         })
 
+def _get_owned_conversation(conversation_id):
+    """Return the conversation if it exists and belongs to the current user, else None."""
+    conversation = Conversation.query.get(conversation_id)
+    if not conversation or conversation.user_id != current_user.id:
+        return None
+    return conversation
+
+
+@app.route('/conversations', methods=['GET'])
+@login_required
+def list_conversations():
+    """List the current user's conversations for the sidebar (most recent first)."""
+    conversations = (
+        Conversation.query
+        .filter_by(user_id=current_user.id)
+        .order_by(Conversation.updated_at.desc())
+        .all()
+    )
+    return jsonify({'conversations': [c.to_dict() for c in conversations]})
+
+
+@app.route('/conversations', methods=['POST'])
+@login_required
+def create_conversation():
+    """Create a new (empty) conversation and return it."""
+    conversation = Conversation(user_id=current_user.id, title='New Chat')
+    db.session.add(conversation)
+    db.session.commit()
+    return jsonify({'conversation': conversation.to_dict()}), 201
+
+
+@app.route('/conversations/<int:conversation_id>', methods=['GET'])
+@login_required
+def get_conversation(conversation_id):
+    """Return a single conversation with all of its messages."""
+    conversation = _get_owned_conversation(conversation_id)
+    if not conversation:
+        return jsonify({'error': 'Conversation not found'}), 404
+    return jsonify({'conversation': conversation.to_dict(include_messages=True)})
+
+
+@app.route('/conversations/<int:conversation_id>', methods=['DELETE'])
+@login_required
+def delete_conversation(conversation_id):
+    """Delete a conversation (and its messages via cascade)."""
+    conversation = _get_owned_conversation(conversation_id)
+    if not conversation:
+        return jsonify({'error': 'Conversation not found'}), 404
+    db.session.delete(conversation)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
 @app.route('/ask', methods=['POST'])
 @login_required
 def ask():
-    
+
     try:
         data = request.get_json()
         if not data:
             return jsonify({'error': 'No JSON data provided'}), 400
             
         prompt = data.get('prompt', '')
-        
+
         if not prompt:
             return jsonify({'error': 'No prompt provided'}), 400
-        
+
+        # Resolve the conversation: use the one provided (if owned) or start a new one.
+        conversation = None
+        conversation_id = data.get('conversation_id')
+        if conversation_id:
+            conversation = _get_owned_conversation(conversation_id)
+            if not conversation:
+                return jsonify({'error': 'Conversation not found'}), 404
+        if conversation is None:
+            conversation = Conversation(user_id=current_user.id, title='New Chat')
+            db.session.add(conversation)
+            db.session.flush()  # assign an id without committing yet
+
         print(f"User {current_user.username} asked: {prompt}")
-        
+
+        # Build the request contents from prior messages so the AI has context,
+        # then append the new prompt. (Cap history to keep the payload reasonable.)
+        HISTORY_LIMIT = 20
+        contents = []
+        for m in conversation.messages[-HISTORY_LIMIT:]:
+            contents.append({
+                "role": "model" if m.role == "ai" else "user",
+                "parts": [{"text": m.content}],
+            })
+        contents.append({"role": "user", "parts": [{"text": prompt}]})
+
         # Prepare the payload for the Gemini API
         payload = {
             "systemInstruction": {
@@ -499,18 +697,13 @@ def ask():
                     }
                 ]
             },
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": prompt}]
-                }
-            ]
+            "contents": contents
         }
-        
+
         print(f"Sending request to AI API...")
         
-        api_url = f"{GEMINI_API_BASE}/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-        response = requests.post(api_url, json=payload, timeout=30)
+        api_url = f"{GEMINI_API_BASE}/{GEMINI_MODEL}:generateContent"
+        response = requests.post(api_url, json=payload, headers=GEMINI_HEADERS, timeout=30)
         
         print(f"API Response Status: {response.status_code}")
         
@@ -528,9 +721,23 @@ def ask():
 
         reply = ai_data["candidates"][0]["content"]["parts"][0]["text"]
         print(f"AI Reply: {reply[:100]}...")
-        
-        return jsonify({"reply": reply})
-        
+
+        # Persist the exchange. Title the conversation from its first user message.
+        is_first_message = len(conversation.messages) == 0
+        db.session.add(Message(conversation_id=conversation.id, role='user', content=prompt))
+        db.session.add(Message(conversation_id=conversation.id, role='ai', content=reply))
+        if is_first_message:
+            title = ' '.join(prompt.split())[:60]
+            conversation.title = title + ('...' if len(prompt) > 60 else '')
+        conversation.updated_at = datetime.utcnow()  # bump so it sorts to top of the sidebar
+        db.session.commit()
+
+        return jsonify({
+            "reply": reply,
+            "conversation_id": conversation.id,
+            "title": conversation.title,
+        })
+
     except requests.exceptions.Timeout:
         print("API request timed out")
         return jsonify({'error': 'AI service request timed out. Please try again.'}), 503
@@ -1018,6 +1225,60 @@ def update_profile():
         db.session.rollback()
         return jsonify({'error': 'An error occurred while updating profile'}), 500
 
+@app.route('/upload-profile-picture', methods=['POST'])
+@login_required
+def upload_profile_picture():
+    """Upload or replace the current user's profile picture."""
+    try:
+        if 'profile_picture' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+
+        file = request.files['profile_picture']
+        if not file or file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+        if ext not in ALLOWED_IMAGE_EXTENSIONS:
+            return jsonify({'error': 'Invalid file type. Use PNG, JPG, GIF, or WEBP.'}), 400
+
+        # Validate size without trusting the client-declared length.
+        file.seek(0, os.SEEK_END)
+        size = file.tell()
+        file.seek(0)
+        if size > MAX_PROFILE_PIC_BYTES:
+            return jsonify({'error': 'File too large. Maximum size is 5 MB.'}), 400
+
+        filename = f"user_{current_user.id}_{uuid.uuid4().hex}.{ext}"
+        file.save(os.path.join(app.config['PROFILE_PIC_FOLDER'], filename))
+
+        old_picture = current_user.profile_picture
+        new_url = url_for('static', filename=f'uploads/profile_pictures/{filename}')
+        current_user.profile_picture = new_url
+        db.session.commit()
+
+        # Clean up the previous file, but only if it was one we stored locally
+        # (never touch external URLs such as Google-hosted avatars).
+        if old_picture and '/static/uploads/profile_pictures/' in old_picture:
+            old_path = os.path.join(_app_root, old_picture.lstrip('/'))
+            try:
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+            except OSError:
+                pass
+
+        return jsonify({
+            'success': True,
+            'message': 'Profile picture updated',
+            'profile_picture': new_url,
+        })
+
+    except Exception as e:
+        print(f"Error uploading profile picture: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return jsonify({'error': 'An error occurred while uploading the picture'}), 500
+
 @app.route('/update-medical-info', methods=['POST'])
 @login_required
 def update_medical_info():
@@ -1212,4 +1473,5 @@ def create_appointment():
 
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    port = int(get_env_value('PORT', '8080'))
+    app.run(host="0.0.0.0", port=port, debug=DEBUG_MODE)

@@ -387,10 +387,21 @@ function initializeChat() {
     const loadingOverlay = document.getElementById('loadingOverlay');
     
     if (!messageInput || !sendButton || !chatMessages) return;
-    
+
     // Mark as initialized
     chatInitialized = true;
-    
+
+    // Sidebar / conversation-history elements + state
+    const conversationList = document.getElementById('conversationList');
+    const newChatBtn = document.getElementById('newChatBtn');
+    const sidebar = document.getElementById('chatSidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+    // Snapshot the initial welcome screen so we can restore it for a fresh chat.
+    const welcomeHTML = chatMessages.innerHTML;
+    // The conversation currently open in the chat pane (null = unsaved new chat).
+    let currentConversationId = null;
+
     // Auto-resize textarea
     messageInput.addEventListener('input', function() {
         this.style.height = 'auto';
@@ -456,24 +467,30 @@ function initializeChat() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ prompt: message })
+                body: JSON.stringify({ prompt: message, conversation_id: currentConversationId })
             });
-            
+
             const data = await response.json();
-            
+
             // Hide typing indicator
             hideTypingIndicator();
-            
+
             if (!response.ok) {
                 // Handle specific error responses
                 const errorMessage = data.error || 'An error occurred';
                 addMessageToChat(`Error: ${errorMessage}`, 'ai');
                 return;
             }
-            
+
             // Check if we have a valid reply
             if (data.reply) {
                 addMessageToChat(data.reply, 'ai');
+                // Adopt the server-side conversation id and refresh the sidebar so
+                // the (possibly new / re-titled) conversation appears at the top.
+                if (data.conversation_id) {
+                    currentConversationId = data.conversation_id;
+                    loadConversations();
+                }
             } else {
                 addMessageToChat('Sorry, I received an empty response. Please try again.', 'ai');
             }
@@ -499,7 +516,7 @@ function initializeChat() {
     }
     
     // Function to add message to chat
-    function addMessageToChat(text, sender) {
+    function addMessageToChat(text, sender, timestamp) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${sender}-message`;
         
@@ -516,7 +533,7 @@ function initializeChat() {
         
         const messageTime = document.createElement('div');
         messageTime.className = 'message-time';
-        messageTime.textContent = new Date().toLocaleTimeString();
+        messageTime.textContent = (timestamp ? new Date(timestamp) : new Date()).toLocaleTimeString();
         
         content.appendChild(messageText);
         content.appendChild(messageTime);
@@ -552,6 +569,156 @@ function initializeChat() {
             typingIndicator.style.display = 'none';
         }
     }
+
+    // ---------- Conversation history / sidebar ----------
+
+    // Highlight the active conversation in the sidebar.
+    function setActiveItem(id) {
+        if (!conversationList) return;
+        conversationList.querySelectorAll('.conversation-item').forEach(el => {
+            el.classList.toggle('active', String(el.dataset.id) === String(id));
+        });
+    }
+
+    // Fetch the user's conversations and render the sidebar list.
+    async function loadConversations() {
+        if (!conversationList) return;
+        try {
+            const res = await fetch('/conversations');
+            if (!res.ok) return;
+            const data = await res.json();
+            renderConversationList(data.conversations || []);
+        } catch (err) {
+            console.error('Failed to load conversations:', err);
+        }
+    }
+
+    function renderConversationList(conversations) {
+        conversationList.innerHTML = '';
+        if (!conversations.length) {
+            const empty = document.createElement('div');
+            empty.className = 'conversation-empty';
+            empty.textContent = 'No conversations yet';
+            conversationList.appendChild(empty);
+            return;
+        }
+        conversations.forEach(conv => {
+            const item = document.createElement('div');
+            item.className = 'conversation-item';
+            item.dataset.id = conv.id;
+            if (String(conv.id) === String(currentConversationId)) {
+                item.classList.add('active');
+            }
+
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-comment-dots conv-icon';
+
+            const title = document.createElement('span');
+            title.className = 'conv-title';
+            title.textContent = conv.title || 'New Chat';
+
+            const del = document.createElement('button');
+            del.className = 'conv-delete';
+            del.type = 'button';
+            del.setAttribute('aria-label', 'Delete conversation');
+            del.innerHTML = '<i class="fas fa-trash"></i>';
+            del.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteConversation(conv.id);
+            });
+
+            item.appendChild(icon);
+            item.appendChild(title);
+            item.appendChild(del);
+            item.addEventListener('click', () => selectConversation(conv.id));
+            conversationList.appendChild(item);
+        });
+    }
+
+    // Open a conversation and render its messages into the chat pane.
+    async function selectConversation(id) {
+        try {
+            const res = await fetch(`/conversations/${id}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            const conv = data.conversation;
+            currentConversationId = conv.id;
+            renderMessages(conv.messages || []);
+            setActiveItem(id);
+            closeSidebarMobile();
+        } catch (err) {
+            console.error('Failed to load conversation:', err);
+        }
+    }
+
+    function renderMessages(messages) {
+        chatMessages.innerHTML = '';
+        if (!messages.length) {
+            chatMessages.innerHTML = welcomeHTML;
+            return;
+        }
+        messages.forEach(m => {
+            addMessageToChat(m.content, m.role === 'ai' ? 'ai' : 'user', m.created_at);
+        });
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Reset to a blank chat (no conversation saved until the first message).
+    function startNewChat() {
+        currentConversationId = null;
+        chatMessages.innerHTML = welcomeHTML;
+        setActiveItem(null);
+        closeSidebarMobile();
+        messageInput.focus();
+    }
+
+    async function deleteConversation(id) {
+        if (!window.confirm('Delete this conversation?')) return;
+        try {
+            const res = await fetch(`/conversations/${id}`, { method: 'DELETE' });
+            if (!res.ok) return;
+            if (String(id) === String(currentConversationId)) {
+                startNewChat();
+            }
+            loadConversations();
+        } catch (err) {
+            console.error('Failed to delete conversation:', err);
+        }
+    }
+
+    // Mobile drawer helpers
+    function closeSidebarMobile() {
+        if (sidebar) sidebar.classList.remove('open');
+        if (sidebarBackdrop) sidebarBackdrop.classList.remove('show');
+    }
+    function toggleSidebarMobile() {
+        if (!sidebar) return;
+        const isOpen = sidebar.classList.toggle('open');
+        if (sidebarBackdrop) sidebarBackdrop.classList.toggle('show', isOpen);
+    }
+
+    // Wire sidebar controls
+    if (newChatBtn) newChatBtn.addEventListener('click', startNewChat);
+    if (sidebarToggle) sidebarToggle.addEventListener('click', toggleSidebarMobile);
+    if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeSidebarMobile);
+
+    // On load: populate the sidebar and reopen the most recent conversation so the
+    // chat survives page navigation (falls back to the welcome screen if none exist).
+    (async function initConversations() {
+        if (!conversationList) return;
+        try {
+            const res = await fetch('/conversations');
+            if (!res.ok) return;
+            const data = await res.json();
+            const conversations = data.conversations || [];
+            renderConversationList(conversations);
+            if (conversations.length) {
+                await selectConversation(conversations[0].id);
+            }
+        } catch (err) {
+            console.error('Failed to initialize conversations:', err);
+        }
+    })();
 }
 
 // Initialize chat when DOM is loaded
@@ -818,6 +985,17 @@ function initializeProfileManagement() {
         await handleProfileUpdate();
     });
 
+    // Profile Picture Upload
+    const profilePictureInput = document.getElementById('profilePictureInput');
+    if (profilePictureInput) {
+        profilePictureInput.addEventListener('change', async function() {
+            const file = this.files && this.files[0];
+            if (!file) return;
+            await handleProfilePictureUpload(file);
+            this.value = ''; // allow re-selecting the same file
+        });
+    }
+
     // Delete Profile Button
     if (deleteProfileBtn) {
         deleteProfileBtn.addEventListener('click', function() {
@@ -962,6 +1140,80 @@ function initializeProfileManagement() {
             showErrorMessage('Failed to update profile. Please try again.');
         } finally {
             hideLoading();
+        }
+    }
+
+    // Handle Profile Picture Upload
+    async function handleProfilePictureUpload(file) {
+        // Client-side guards mirroring the server limits
+        const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+        if (!allowed.includes(file.type)) {
+            showErrorMessage('Invalid file type. Use PNG, JPG, GIF, or WEBP.');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            showErrorMessage('File too large. Maximum size is 5 MB.');
+            return;
+        }
+
+        try {
+            showLoading();
+            const formData = new FormData();
+            formData.append('profile_picture', file);
+
+            const response = await fetch('/upload-profile-picture', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                updateAvatarImages(data.profile_picture);
+                showSuccessMessage('Profile picture updated!');
+            } else {
+                throw new Error(data.error || 'Upload failed');
+            }
+        } catch (error) {
+            console.error('Error uploading profile picture:', error);
+            showErrorMessage(error.message || 'Failed to upload picture. Please try again.');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // Swap the new picture into the header avatar and the navbar avatar
+    function updateAvatarImages(url) {
+        const bust = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+
+        // Header avatar: replace placeholder with an <img> if needed
+        const headerImg = document.getElementById('profileAvatarImg');
+        if (headerImg) {
+            headerImg.src = bust;
+        } else {
+            const placeholder = document.getElementById('profileAvatarPlaceholder');
+            if (placeholder) {
+                const img = document.createElement('img');
+                img.src = bust;
+                img.alt = 'Profile Picture';
+                img.className = 'avatar-image';
+                img.id = 'profileAvatarImg';
+                placeholder.replaceWith(img);
+            }
+        }
+
+        // Navbar avatar
+        const navImg = document.querySelector('.nav-avatar');
+        if (navImg) {
+            navImg.src = bust;
+        } else {
+            const navIcon = document.querySelector('.nav-avatar-icon');
+            if (navIcon) {
+                const img = document.createElement('img');
+                img.src = bust;
+                img.alt = 'Profile';
+                img.className = 'nav-avatar';
+                navIcon.replaceWith(img);
+            }
         }
     }
 

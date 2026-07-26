@@ -45,7 +45,7 @@
                 {% if username %}
                 <li class="nav-item dropdown">
                     <a href="#profile" class="nav-link profile-link">
-                        <i class="fas fa-user-circle"></i> {{ username }}
+                        {% if current_user.profile_picture %}<img src="{{ current_user.profile_picture }}" alt="Profile" class="nav-avatar">{% else %}<i class="fas fa-user-circle nav-avatar-icon"></i>{% endif %}
                         <i class="fas fa-chevron-down dropdown-arrow"></i>
                     </a>
                     <div class="dropdown-content">
@@ -89,9 +89,30 @@
         {% endif %}
     {% endwith %}
 
+    <!-- Chat Layout: sidebar + chat -->
+    <div class="chat-layout">
+        <!-- Conversation Sidebar -->
+        <aside class="chat-sidebar" id="chatSidebar">
+            <div class="sidebar-header">
+                <button id="newChatBtn" class="new-chat-btn" type="button">
+                    <i class="fas fa-plus"></i> New Chat
+                </button>
+            </div>
+            <div class="conversation-list" id="conversationList">
+                <!-- Conversation items are rendered here by custom.js -->
+                <div class="conversation-empty" id="conversationEmpty">No conversations yet</div>
+            </div>
+        </aside>
+
+        <!-- Mobile overlay to close the sidebar when tapping outside it -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
     <!-- Main Chat Container -->
     <div class="chat-container">
         <div class="chat-header">
+            <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle conversations">
+                <i class="fas fa-bars"></i>
+            </button>
             <div class="chat-title">
                 <i class="fas fa-robot"></i>
                 <h2>AI Health Assistant</h2>
@@ -160,6 +181,7 @@
             </div>
         </div>
     </div>
+    </div><!-- /.chat-layout -->
 
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay" style="display: none;">

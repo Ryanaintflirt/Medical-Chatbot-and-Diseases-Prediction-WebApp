@@ -1,0 +1,149 @@
+{# Override Flask-Admin's master so the whole admin area matches the main app's
+   dark glassmorphism theme (same background, translucent cards, white text).
+   Every admin page — the custom dashboard and all model list/edit views —
+   extends this, so the styling below applies site-wide across /admin. #}
+{% extends 'admin/base.html' %}
+
+{% block head_tail %}
+  {{ super() }}
+  <style>
+    /* ---- Base / background (matches static/style.css body) ---- */
+    body {
+      background-image: url("/static/image/BackGround.jpg");
+      background-position: center;
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      color: #ffffff;
+    }
+    body::before {
+      /* subtle dark overlay so text stays legible over the photo */
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(6, 10, 30, 0.72), rgba(6, 10, 30, 0.82));
+      z-index: -1;
+    }
+
+    /* ---- Navbar (glassmorphism, like the app nav) ---- */
+    .navbar.bg-dark {
+      background: rgba(255, 255, 255, 0.08) !important;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .navbar-brand,
+    .navbar-dark .navbar-nav .nav-link {
+      color: rgba(255, 255, 255, 0.85) !important;
+      font-weight: 500;
+    }
+    .navbar-brand { font-weight: 700; }
+    .navbar-dark .navbar-nav .nav-link:hover,
+    .navbar-dark .navbar-nav .active > .nav-link,
+    .navbar-dark .navbar-nav .nav-link.active {
+      color: #ffffff !important;
+    }
+    .navbar-dark .navbar-nav .active > .nav-link {
+      border-bottom: 2px solid #4d9bff;
+    }
+
+    /* ---- Headings ---- */
+    h1, h2, h3, h4, h5, h6 { color: #ffffff; }
+
+    /* ---- Cards (glassmorphism) ---- */
+    .card {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      color: #ffffff;
+    }
+    .card-header {
+      background: rgba(255, 255, 255, 0.06) !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      border-radius: 14px 14px 0 0 !important;
+    }
+    .card a { color: inherit; }
+    .text-muted { color: rgba(255, 255, 255, 0.6) !important; }
+
+    /* ---- Tables ---- */
+    .table {
+      color: #ffffff;
+      margin-bottom: 0;
+    }
+    .table thead th {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      border-top: none;
+      color: rgba(255, 255, 255, 0.85);
+      font-weight: 600;
+    }
+    .table td, .table th {
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .table-hover tbody tr:hover {
+      background-color: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+    }
+    .table a { color: #6fb1ff; }
+    .table a:hover { color: #9cc9ff; }
+
+    /* ---- Badges ---- */
+    .badge-secondary { background-color: rgba(255, 255, 255, 0.2); color: #fff; }
+    .badge-danger { background-color: #e0405a; }
+    .badge-info { background-color: #17a2b8; }
+    .badge-success { background-color: #28a745; }
+
+    /* ---- Forms (model create/edit views) ---- */
+    .form-control, .custom-select, textarea, .select2-container--bootstrap4 .select2-selection {
+      background-color: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+    }
+    .form-control:focus, .custom-select:focus {
+      background-color: rgba(255, 255, 255, 0.12);
+      border-color: #4d9bff;
+      color: #ffffff;
+      box-shadow: 0 0 0 0.2rem rgba(77, 155, 255, 0.25);
+    }
+    .form-control::placeholder { color: rgba(255, 255, 255, 0.5); }
+    .col-form-label, label, .control-label { color: rgba(255, 255, 255, 0.85); }
+
+    /* ---- Dropdowns / modals (filters, actions) ---- */
+    .dropdown-menu {
+      background: rgba(25, 30, 55, 0.97);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .dropdown-item { color: rgba(255, 255, 255, 0.85); }
+    .dropdown-item:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+    .modal-content {
+      background: rgba(20, 25, 50, 0.98);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .modal-header, .modal-footer { border-color: rgba(255, 255, 255, 0.12); }
+
+    /* ---- Pagination ---- */
+    .page-link {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #cfe0ff;
+    }
+    .page-link:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
+    .page-item.active .page-link { background: #2f6fd6; border-color: #2f6fd6; }
+    .page-item.disabled .page-link { background: rgba(255, 255, 255, 0.04); color: rgba(255,255,255,0.4); }
+
+    /* ---- Buttons: keep primary blue, soften default/outline on dark ---- */
+    .btn-default, .btn-light {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+    }
+    .btn-default:hover, .btn-light:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
+
+    /* ---- Alerts ---- */
+    .alert { border: 1px solid rgba(255, 255, 255, 0.15); }
+  </style>
+{% endblock %}

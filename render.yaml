@@ -8,6 +8,12 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.0
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_TOKEN
+        sync: false
       - key: FIREBASE_API_KEY
         sync: false
       - key: FIREBASE_AUTH_DOMAIN
