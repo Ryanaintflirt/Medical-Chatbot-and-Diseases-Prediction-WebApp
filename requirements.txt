@@ -4,6 +4,9 @@ Flask-CORS==4.0.0
 Flask-SQLAlchemy==3.0.5
 Flask-Login==0.6.3
 Flask-Admin==1.6.1
+# Flask-Admin 1.6.1 emits 3-tuple form choices; WTForms >=3.1 expects 4-tuples
+# and raises "not enough values to unpack" on Select fields. Pin to the last 3.0.x.
+WTForms==3.0.1
 Flask-Migrate==4.0.5
 Werkzeug==2.3.7
 
