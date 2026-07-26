@@ -533,7 +533,7 @@ function initializeChat() {
         
         const messageTime = document.createElement('div');
         messageTime.className = 'message-time';
-        messageTime.textContent = (timestamp ? new Date(timestamp) : new Date()).toLocaleTimeString();
+        messageTime.textContent = (timestamp ? new Date(timestamp) : new Date()).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
         
         content.appendChild(messageText);
         content.appendChild(messageTime);

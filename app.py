@@ -146,6 +146,25 @@ def _current_user_is_admin():
     return current_user.is_authenticated and getattr(current_user, 'role', 'user') == 'admin'
 
 
+# Emails that should always have the admin role, from the ADMIN_EMAILS env var
+# (comma-separated, case-insensitive). Applied on every login so admin access
+# survives the database being recreated (e.g. Render's ephemeral disk), where a
+# one-off `flask make-admin` would be lost on the next deploy.
+ADMIN_EMAILS = {
+    e.strip().lower()
+    for e in (get_env_value('ADMIN_EMAILS', '') or '').split(',')
+    if e.strip()
+}
+
+
+def _apply_configured_admin_role(user):
+    """Promote `user` to admin if their email is listed in ADMIN_EMAILS."""
+    if user and user.email and user.email.strip().lower() in ADMIN_EMAILS:
+        if user.role != 'admin':
+            user.role = 'admin'
+            logger.info('Granted admin role to %s via ADMIN_EMAILS', user.email)
+
+
 class SecureModelView(ModelView):
     """Base admin view: only reachable by logged-in admins."""
     def is_accessible(self):
@@ -400,17 +419,18 @@ def login():
                 
                 # Update last login
                 user.last_login = datetime.utcnow()
+                _apply_configured_admin_role(user)
                 db.session.commit()
-                
+
                 # Login user with Flask-Login
                 login_user(user, remember=True)
-                
+
                 return jsonify({
                     'success': True,
                     'message': 'Login successful!',
                     'user': user.to_dict()
                 })
-                
+
             elif auth_type == 'custom':
                 # Custom email/password authentication
                 email = data.get('email')
@@ -430,17 +450,18 @@ def login():
                 
                 # Update last login
                 user.last_login = datetime.utcnow()
+                _apply_configured_admin_role(user)
                 db.session.commit()
-                
+
                 # Login user with Flask-Login
                 login_user(user, remember=True)
-                
+
                 return jsonify({
                     'success': True,
                     'message': 'Login successful!',
                     'user': user.to_dict()
                 })
-            
+
             else:
                 return jsonify({'error': 'Invalid authentication type'}), 400
                 

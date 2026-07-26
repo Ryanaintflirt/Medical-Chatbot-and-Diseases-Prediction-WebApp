@@ -194,7 +194,7 @@
     <script src="{{ url_for('static', filename='custom.js') }}"></script>
     <script>
         // Set welcome message time
-        document.getElementById('welcomeTime').textContent = new Date().toLocaleTimeString();
+        document.getElementById('welcomeTime').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     </script>
 </body>
 </html>

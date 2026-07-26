@@ -13,6 +13,8 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       # Optional: enables the /init-db and /populate-doctors maintenance routes when set
       - ADMIN_TOKEN=${ADMIN_TOKEN:-}
+      # Optional: comma-separated emails auto-granted the admin role on login
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-}
       
       # Firebase Configuration (provide these values)
       - FIREBASE_API_KEY=${FIREBASE_API_KEY}

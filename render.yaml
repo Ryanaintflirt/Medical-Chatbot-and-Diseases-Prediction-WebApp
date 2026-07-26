@@ -14,6 +14,9 @@ services:
         generateValue: true
       - key: ADMIN_TOKEN
         sync: false
+      # Comma-separated emails auto-granted the admin role on login
+      - key: ADMIN_EMAILS
+        sync: false
       - key: FIREBASE_API_KEY
         sync: false
       - key: FIREBASE_AUTH_DOMAIN
