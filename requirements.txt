@@ -16,7 +16,7 @@ python-dotenv==1.0.0
 
 # # Machine Learning and Data Processing
 numpy>=1.26.0
-# scikit-learn>=1.3.2
+scikit-learn>=1.3.2  # required to unpickle the saved_models/*.pkl disease models
 # pandas>=2.1.1
 
 # # LangChain - These versions have better support for PEP 517 (modern builds)

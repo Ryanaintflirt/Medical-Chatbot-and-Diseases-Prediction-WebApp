@@ -14,6 +14,7 @@ import json
 from datetime import datetime
 from models import db, User, MedicalInfofuser, Doctor, Appointment, Conversation, Message, Hospital
 from loadModels import load_models
+from sqlalchemy.exc import OperationalError
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -107,7 +108,18 @@ def _ensure_sqlite_columns():
 # Create tables if missing (avoids "no such table" when /init-db was never run),
 # then backfill any columns added in later releases.
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+    except OperationalError as exc:
+        # With multiple gunicorn workers, each imports this module and calls
+        # create_all() concurrently against the same fresh SQLite file. They
+        # race between checkfirst's reflection and the CREATE TABLE, so the
+        # loser sees "table ... already exists". The winning worker creates the
+        # full schema, so the loser can safely roll back and carry on.
+        if 'already exists' not in str(exc).lower():
+            raise
+        db.session.rollback()
+        logger.warning('create_all() raced with another worker; schema already present: %s', exc)
     _ensure_sqlite_columns()
 CORS(app)
 
