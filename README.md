@@ -312,9 +312,42 @@ The application uses pre-trained machine learning models for disease prediction:
 ## 🧪 Development
 
 ### Running Tests
+An automated test suite (in `tests/`) covers public pages, authentication and
+authorisation, the registration/login flow, and core domain logic. It runs
+against a throwaway SQLite database, so no configuration is required:
 ```bash
 pytest
 ```
+
+### Database
+By default the app uses a local SQLite file under `instance/`. In production,
+set the `DATABASE_URL` environment variable to a PostgreSQL connection string
+and the app will use it automatically, so data persists across deploys. On
+Render this is wired up automatically by `render.yaml` (managed Postgres).
+
+### Retrieval-Augmented Generation (RAG)
+The chatbot grounds its answers in a trusted medical reference
+(`data/Medical_book.pdf`) using RAG backed by a **Pinecone** vector database:
+
+1. **Offline indexing** (`build_rag_index.py`): LangChain loads and chunks the
+   PDF, and each chunk is embedded with the Gemini embedding API and saved to
+   `data/medical_index.npz` / `data/medical_chunks.json`.
+2. **Load to Pinecone** (`push_to_pinecone.py`): the embeddings are upserted
+   into a serverless Pinecone index (default name `medicalbot-gemini`).
+   ```bash
+   pip install -r requirements-rag.txt
+   python build_rag_index.py      # embed the book (one-off; resumable)
+   python push_to_pinecone.py     # upsert vectors into Pinecone
+   ```
+3. **Runtime retrieval** (`src/rag.py`): at query time the user's question is
+   embedded with Gemini, Pinecone returns the most similar passages, and they
+   are injected into the model prompt as grounding context. The runtime needs
+   only `requests` (no torch / no local model), so it stays deployable on a
+   small instance. If Pinecone or the embedding API is unavailable, the chatbot
+   degrades gracefully to a normal (non-grounded) answer.
+
+Required env vars: `GEMINI_API_KEY`, `PINECONE_API_KEY`, and optionally
+`PINECONE_INDEX` (defaults to `medicalbot-gemini`).
 
 ### Model Training
 The Jupyter notebooks in the `research/` directory contain the model training code:

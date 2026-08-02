@@ -15,6 +15,7 @@ from datetime import datetime
 from models import db, User, MedicalInfofuser, Doctor, Appointment, Conversation, Message, Hospital
 from loadModels import load_models
 from sqlalchemy.exc import OperationalError
+from src import rag
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -58,11 +59,21 @@ if not app.secret_key:
     logger.warning('SECRET_KEY not set; using an insecure development key. Do NOT use in production.')
     app.secret_key = 'dev-only-insecure-secret-key-change-me'
 
-# Database configuration (use instance/ so path does not depend on cwd)
-os.makedirs(app.instance_path, exist_ok=True)
-app.config['SQLALCHEMY_DATABASE_URI'] = (
-    'sqlite:///' + os.path.join(app.instance_path, 'healthcare_users.db')
-)
+# Database configuration.
+# Prefer DATABASE_URL (e.g. a managed Postgres on Render) so data survives
+# redeploys; fall back to a local SQLite file under instance/ for development.
+_database_url = get_env_value('DATABASE_URL')
+if _database_url:
+    # SQLAlchemy needs the 'postgresql://' scheme, but Render/Heroku hand out
+    # the legacy 'postgres://' — normalise it so the driver is selected.
+    if _database_url.startswith('postgres://'):
+        _database_url = _database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = _database_url
+else:
+    os.makedirs(app.instance_path, exist_ok=True)
+    app.config['SQLALCHEMY_DATABASE_URI'] = (
+        'sqlite:///' + os.path.join(app.instance_path, 'healthcare_users.db')
+    )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Profile picture uploads
@@ -721,14 +732,32 @@ def ask():
             })
         contents.append({"role": "user", "parts": [{"text": prompt}]})
 
+        # Retrieval-Augmented Generation: pull relevant passages from the medical
+        # reference book and ground the model's answer in them. Degrades silently
+        # to a normal (non-grounded) answer if the index/embeddings are unavailable.
+        base_instruction = (
+            "You are a helpful AI Health Assistant. Provide accurate, helpful health "
+            "information and advice. Always remind users to consult with healthcare "
+            "professionals for serious medical concerns. If user ask other question "
+            "except medical question, say that you don't know. Use five sentences "
+            "maximum and keep the answer concise."
+        )
+        rag_context = rag.build_context(prompt)
+        if rag_context:
+            instruction_text = (
+                base_instruction
+                + "\n\nUse the following context from a trusted medical reference to "
+                "inform your answer when relevant. If the context does not help, rely "
+                "on your general medical knowledge.\n\nContext:\n" + rag_context
+            )
+            print(f"RAG: grounded answer using retrieved medical context ({len(rag_context)} chars)")
+        else:
+            instruction_text = base_instruction
+
         # Prepare the payload for the Gemini API
         payload = {
             "systemInstruction": {
-                "parts": [
-                    {
-                        "text": "You are a helpful AI Health Assistant. Provide accurate, helpful health information and advice. Always remind users to consult with healthcare professionals for serious medical concerns. If user ask other question except medical question, say that you don't know. Use five sentences maximum and keep the answer concise."
-                    }
-                ]
+                "parts": [{"text": instruction_text}]
             },
             "contents": contents
         }

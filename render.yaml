@@ -17,6 +17,19 @@ services:
       # Comma-separated emails auto-granted the admin role on login
       - key: ADMIN_EMAILS
         sync: false
+      # Persistent database. Wired to the managed Postgres defined below so that
+      # users, appointments and chats survive redeploys (the SQLite file on the
+      # instance disk is ephemeral and wiped on every deploy).
+      - key: DATABASE_URL
+        fromDatabase:
+          name: medical-chatbot-db
+          property: connectionString
+
+databases:
+  - name: medical-chatbot-db
+    plan: free
+    databaseName: healthcare
+    user: healthcare
       - key: FIREBASE_API_KEY
         sync: false
       - key: FIREBASE_AUTH_DOMAIN
@@ -39,6 +52,9 @@ services:
         value: gemini-3-flash-preview
       - key: PINECONE_API_KEY
         sync: false
+      # Pinecone index holding the medical-book embeddings for chatbot RAG
+      - key: PINECONE_INDEX
+        value: medicalbot-gemini
       - key: url
         sync: false
       - key: DapiKey
