@@ -43,8 +43,12 @@ EMBED_URL = f'https://generativelanguage.googleapis.com/v1beta/models/{EMBED_MOD
 HEADERS = {'x-goog-api-key': API_KEY, 'Content-Type': 'application/json'}
 
 
-def embed_one(text, task_type='RETRIEVAL_DOCUMENT', max_retries=8):
-    """Embed a single text, returning its vector (with retry/backoff on 429)."""
+def embed_one(text, task_type='RETRIEVAL_DOCUMENT', max_retries=40):
+    """Embed a single text, returning its vector (with retry/backoff on 429).
+
+    Uses many retries with a capped 60s backoff so a sustained free-tier quota
+    window (which can last several minutes) is waited out rather than aborting.
+    """
     body = {
         'model': f'models/{EMBED_MODEL}',
         'content': {'parts': [{'text': text}]},
