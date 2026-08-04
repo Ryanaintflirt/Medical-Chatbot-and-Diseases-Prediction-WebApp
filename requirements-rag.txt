@@ -1,7 +1,9 @@
-# Dependencies for building the RAG index OFFLINE (build_rag_index.py).
-# These are NOT needed to run the web app — the deployed runtime only needs
-# numpy + requests (already in requirements.txt) to load the pre-built index.
-# Install with:  pip install -r requirements-rag.txt
+# Dependencies for (re)building the Pinecone 'medicalbot' index OFFLINE via the
+# research notebook (research/trials.ipynb). NOT needed to run the web app —
+# the deployed runtime uses fastembed (in requirements.txt) to query the index.
 langchain-community>=0.2
 langchain-text-splitters>=0.2
+langchain-pinecone>=0.1
+pinecone>=5.0
+sentence-transformers>=2.2
 pypdf>=4.0

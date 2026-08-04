@@ -49,3 +49,7 @@ gunicorn==21.2.0
 # PostgreSQL driver (used when DATABASE_URL is set, e.g. Render Postgres, so
 # data persists across deploys; SQLite is used automatically when it is unset)
 psycopg2-binary==2.9.9
+
+# Lightweight ONNX embeddings (no torch) for chatbot RAG query encoding.
+# Produces MiniLM vectors compatible with the Pinecone 'medicalbot' index.
+fastembed==0.8.0

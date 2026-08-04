@@ -1,14 +1,12 @@
 """Runtime Retrieval-Augmented Generation (RAG) helper for the medical chatbot.
 
-At query time this embeds the user's question with the Gemini embedding API and
-queries a Pinecone vector index (built offline from the medical reference book)
-for the most relevant passages, which the chatbot injects into the model prompt
-as grounding context.
+At query time this embeds the user's question with a lightweight ONNX
+MiniLM model (via fastembed — no torch) and queries the Pinecone index that was
+built from the medical reference book (``medicalbot``). The most relevant
+passages are injected into the chatbot prompt as grounding context.
 
-Only ``requests`` is needed at runtime (no torch / no local model), so this
-stays deployable on a small instance. Every failure path (missing config,
-embedding or Pinecone error) degrades gracefully to "no context", so the
-chatbot keeps working even when retrieval is unavailable.
+Every failure path (missing model, Pinecone error) degrades gracefully to
+"no context", so the chatbot keeps working even when retrieval is unavailable.
 """
 import logging
 import os
@@ -17,21 +15,35 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# --- Embedding (Gemini) -----------------------------------------------------
-_EMBED_MODEL = (os.getenv('EMBED_MODEL') or 'gemini-embedding-001').strip()
-_EMBED_DIM = int(os.getenv('EMBED_DIM', '768'))
-_GEMINI_KEY = (os.getenv('GEMINI_API_KEY') or os.getenv('AiApi_Key') or '').strip()
-_EMBED_URL = f'https://generativelanguage.googleapis.com/v1beta/models/{_EMBED_MODEL}:embedContent'
-
-# --- Vector store (Pinecone) ------------------------------------------------
+_MODEL_NAME = (os.getenv('EMBED_MODEL') or 'sentence-transformers/all-MiniLM-L6-v2').strip()
+_INDEX_NAME = (os.getenv('PINECONE_INDEX') or 'medicalbot').strip()
 _PINECONE_KEY = (os.getenv('PINECONE_API_KEY') or '').strip()
-_INDEX_NAME = (os.getenv('PINECONE_INDEX') or 'medicalbot-gemini').strip()
 _API_VERSION = '2024-07'
 _PINECONE_HEADERS = {'Api-Key': _PINECONE_KEY, 'X-Pinecone-API-Version': _API_VERSION,
                      'Content-Type': 'application/json'}
 
-_host = None            # resolved index host, cached for the process lifetime
+_model = None           # fastembed TextEmbedding, lazily loaded and cached
+_model_failed = False
+_host = None            # resolved Pinecone index host, cached
 _host_resolved = False
+
+
+def _get_model():
+    """Lazily load the embedding model once. Returns None if unavailable."""
+    global _model, _model_failed
+    if _model is not None:
+        return _model
+    if _model_failed:
+        return None
+    try:
+        from fastembed import TextEmbedding
+        _model = TextEmbedding(model_name=_MODEL_NAME)
+        logger.info('Loaded embedding model %s', _MODEL_NAME)
+        return _model
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning('Could not load embedding model (%s); RAG disabled: %s', _MODEL_NAME, exc)
+        _model_failed = True
+        return None
 
 
 def _resolve_host():
@@ -40,7 +52,6 @@ def _resolve_host():
     if _host_resolved:
         return _host
     _host_resolved = True
-    # Allow an explicit host override to skip the control-plane lookup.
     env_host = (os.getenv('PINECONE_HOST') or '').strip()
     if env_host:
         _host = env_host
@@ -62,35 +73,22 @@ def _resolve_host():
 
 
 def _embed_query(text):
-    """Embed a query with the Gemini embedding API; None on failure."""
-    if not _GEMINI_KEY:
+    """Embed a query with the local MiniLM model; None on failure."""
+    model = _get_model()
+    if model is None:
         return None
     try:
-        resp = requests.post(
-            _EMBED_URL,
-            headers={'x-goog-api-key': _GEMINI_KEY, 'Content-Type': 'application/json'},
-            json={
-                'model': f'models/{_EMBED_MODEL}',
-                'content': {'parts': [{'text': text}]},
-                'taskType': 'RETRIEVAL_QUERY',
-                'outputDimensionality': _EMBED_DIM,
-            },
-            timeout=15,
-        )
-        if resp.status_code != 200:
-            logger.warning('Query embedding failed: %s', resp.status_code)
-            return None
-        return resp.json()['embedding']['values']
+        return list(model.embed([text]))[0].tolist()
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning('Query embedding error: %s', exc)
         return None
 
 
-def retrieve(query, k=4, min_score=0.5):
+def retrieve(query, k=4, min_score=0.3):
     """Return up to ``k`` relevant passages (dicts with 'text', 'page', 'score').
 
-    Returns an empty list if retrieval is unavailable for any reason, so callers
-    can always fall back to answering without grounding context.
+    De-duplicates identical passages (the source index contains duplicates) and
+    returns an empty list if retrieval is unavailable for any reason.
     """
     if not query:
         return []
@@ -101,10 +99,11 @@ def retrieve(query, k=4, min_score=0.5):
     if vector is None:
         return []
     try:
+        # Over-fetch so that de-duplication still leaves k distinct passages.
         resp = requests.post(
             f'https://{host}/query',
             headers=_PINECONE_HEADERS,
-            json={'vector': vector, 'topK': k, 'includeMetadata': True},
+            json={'vector': vector, 'topK': k * 2, 'includeMetadata': True},
             timeout=15,
         )
         if resp.status_code != 200:
@@ -115,17 +114,20 @@ def retrieve(query, k=4, min_score=0.5):
         logger.warning('Pinecone query error: %s', exc)
         return []
 
-    results = []
+    results, seen = [], set()
     for m in matches:
         score = float(m.get('score', 0.0))
         if score < min_score:
             continue
         md = m.get('metadata') or {}
-        results.append({
-            'text': md.get('text', ''),
-            'page': md.get('page'),
-            'score': score,
-        })
+        text = (md.get('text') or '').strip()
+        key = text[:120]
+        if not text or key in seen:
+            continue
+        seen.add(key)
+        results.append({'text': text, 'page': md.get('page'), 'score': score})
+        if len(results) >= k:
+            break
     return results
 
 
